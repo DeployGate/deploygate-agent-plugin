@@ -1,4 +1,4 @@
-# /dg-setup — Start DeployGate onboarding
+# /setup — Start DeployGate onboarding
 
 Start the DeployGate onboarding flow to set up app distribution from scratch.
 

@@ -73,7 +73,7 @@ describe(".claude-plugin/marketplace.json", () => {
     const plugins = marketplace.plugins as Array<Record<string, unknown>>;
     expect(Array.isArray(plugins)).toBe(true);
     expect(plugins.length).toBeGreaterThan(0);
-    expect(plugins[0].source).toBe(".");
+    expect(plugins[0].source).toBe("./");
   });
 
   it("plugin version matches plugin.json version", () => {
@@ -123,27 +123,27 @@ describe(".mcp.json", () => {
 });
 
 describe("commands/", () => {
-  it("dg-deploy.md exists", () => {
-    expect(existsSync(resolve(ROOT, "commands/dg-deploy.md"))).toBe(true);
+  it("deploy.md exists", () => {
+    expect(existsSync(resolve(ROOT, "commands/deploy.md"))).toBe(true);
   });
 
-  it("dg-setup.md exists", () => {
-    expect(existsSync(resolve(ROOT, "commands/dg-setup.md"))).toBe(true);
+  it("setup.md exists", () => {
+    expect(existsSync(resolve(ROOT, "commands/setup.md"))).toBe(true);
   });
 
-  it("dg-deploy.md contains correct command name", () => {
+  it("deploy.md contains correct command name", () => {
     const content = readFileSync(
-      resolve(ROOT, "commands/dg-deploy.md"),
+      resolve(ROOT, "commands/deploy.md"),
       "utf-8",
     );
-    expect(content).toContain("/dg-deploy");
+    expect(content).toContain("/deploy");
   });
 
-  it("dg-setup.md contains correct command name", () => {
+  it("setup.md contains correct command name", () => {
     const content = readFileSync(
-      resolve(ROOT, "commands/dg-setup.md"),
+      resolve(ROOT, "commands/setup.md"),
       "utf-8",
     );
-    expect(content).toContain("/dg-setup");
+    expect(content).toContain("/setup");
   });
 });

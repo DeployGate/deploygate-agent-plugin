@@ -1,4 +1,4 @@
-# /dg-deploy — Build and upload app to DeployGate
+# /deploy — Build and upload app to DeployGate
 
 Build the current project and upload the binary to DeployGate.
 
@@ -34,6 +34,6 @@ Build the current project and upload the binary to DeployGate.
 ## Options
 
 The user can specify:
-- Distribution page name: `/dg-deploy to "Beta"` → sets `distribution_name: "Beta"`
-- Distribution page key: `/dg-deploy to key:abc123` → sets `distribution_key: "abc123"`
-- Custom message: `/dg-deploy with message "hotfix build"` → overrides auto-generated message
+- Distribution page name: `/deploy to "Beta"` → sets `distribution_name: "Beta"`
+- Distribution page key: `/deploy to key:abc123` → sets `distribution_key: "abc123"`
+- Custom message: `/deploy with message "hotfix build"` → overrides auto-generated message
