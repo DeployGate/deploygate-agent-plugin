@@ -8,7 +8,7 @@ export function registerMemberTools(
 ): void {
   server.tool(
     "add_member",
-    "Add a member to a DeployGate project with the specified role. This orchestrates multiple API calls: (1) add to workspace, (2) add to project, (3) add to team. For testers, also (4) assigns the tester team to the specified app. Handles duplicate members gracefully.",
+    "Add a member to a DeployGate project with the specified role. This orchestrates multiple API calls: (1) add to workspace, (2) add to project, (3) add to team. For testers, also (4) assigns the tester team to the specified app. Handles duplicates gracefully: workspace returns 400 (already_joined_member) which is skipped, project/team additions are upserts (silent success). Free plan has a 2-member limit; exceeding it returns a 403 with upgrade guidance.",
     {
       workspace: z.string().describe("Workspace (enterprise) name"),
       project: z.string().describe("Project (organization) name"),

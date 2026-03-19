@@ -1,0 +1,43 @@
+# DeployGate Upload Workflow
+# Uploads the app to DeployGate on push to the main branch.
+#
+# Required secrets:
+#   DEPLOYGATE_API_TOKEN  — API token from https://deploygate.com/settings
+#   DEPLOYGATE_OWNER_NAME — Your DeployGate user or organization name
+#
+# Customize:
+#   - Replace the "Build app" step with your actual build commands
+#   - Update file_path to point to your built binary
+#   - Adjust the branch trigger as needed
+
+name: DeployGate Upload
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    # For iOS builds, use: runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: Replace with your actual build step
+      - name: Build app
+        run: |
+          echo "Replace this with your build command, e.g.:"
+          echo "  Android: ./gradlew assembleDebug"
+          echo "  iOS: fastlane gym --scheme MyApp --export_method development"
+
+      - name: Upload to DeployGate
+        id: upload
+        uses: DeployGate/deploygate-upload-github-action@v1
+        with:
+          api_token: ${{ secrets.DEPLOYGATE_API_TOKEN }}
+          owner_name: ${{ secrets.DEPLOYGATE_OWNER_NAME }}
+          # TODO: Update the file path to your built binary
+          file_path: app/build/outputs/apk/debug/app-debug.apk
+          message: "${{ github.ref_name }} (${{ github.sha }})"
+          distribution_name: "Development"
+          release_note: "${{ github.event.head_commit.message }}"

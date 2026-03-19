@@ -8,7 +8,7 @@ export function registerUploadTools(
 ): void {
   server.tool(
     "upload_app",
-    "Upload an app binary (IPA/APK/AAB) to DeployGate. Optionally specify a distribution page to update.",
+    "Upload an app binary (IPA/APK/AAB) to DeployGate. Optionally specify a distribution page to update. If both distribution_key and distribution_name are specified, distribution_key takes priority and distribution_name is ignored. When distribution_name creates a new page, it is created with active=false.",
     {
       owner_name: z.string().describe("Owner name (user or organization)"),
       file_path: z
@@ -19,7 +19,7 @@ export function registerUploadTools(
         .max(32766)
         .optional()
         .describe(
-          "Short description of this build (e.g. branch name, commit hash). Max 32,766 bytes.",
+          "Short description of this build (e.g. branch name, commit hash). Max 32,766 bytes; auto-truncated if exceeded (response includes a warning).",
         ),
       distribution_key: z
         .string()
