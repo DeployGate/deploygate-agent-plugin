@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "deploygate": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "env": {
+        "DEPLOYGATE_API_TOKEN": ""
+      }
+    }
+  }
+}

@@ -1,0 +1,317 @@
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
+
+const BASE_URL = "https://deploygate.com";
+
+export interface DeployGateErrorDetail {
+  error: true;
+  message: string;
+  because?: string;
+  error_type?: string;
+  invalid_params?: Array<{ field: string; reason: string }>;
+}
+
+export class DeployGateApiError extends Error {
+  readonly errorType?: string;
+  readonly because?: string;
+  readonly invalidParams?: Array<{ field: string; reason: string }>;
+
+  constructor(response: DeployGateErrorDetail) {
+    super(response.message);
+    this.name = "DeployGateApiError";
+    this.errorType = response.error_type;
+    this.because = response.because;
+    this.invalidParams = response.invalid_params;
+  }
+}
+
+export class DeployGateClient {
+  private token: string;
+
+  constructor(token: string) {
+    this.token = token;
+  }
+
+  private async request<T = unknown>(
+    method: string,
+    path: string,
+    options?: {
+      body?: Record<string, unknown>;
+      formData?: FormData;
+    },
+  ): Promise<T> {
+    const url = `${BASE_URL}${path}`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.token}`,
+    };
+
+    const fetchOptions: RequestInit = { method, headers };
+
+    if (options?.formData) {
+      fetchOptions.body = options.formData;
+    } else if (options?.body) {
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(options.body)) {
+        if (value !== undefined && value !== null) {
+          params.set(key, String(value));
+        }
+      }
+      fetchOptions.body = params.toString();
+    }
+
+    const response = await fetch(url, fetchOptions);
+    const data = (await response.json()) as Record<string, unknown>;
+
+    if (data.error) {
+      throw new DeployGateApiError(data as unknown as DeployGateErrorDetail);
+    }
+
+    return (data.results ?? data) as T;
+  }
+
+  // --- Auth / User info ---
+
+  async getOrganizations(): Promise<unknown> {
+    return this.request("GET", "/api/organizations");
+  }
+
+  // --- App upload ---
+
+  async uploadApp(
+    ownerName: string,
+    filePath: string,
+    options?: {
+      message?: string;
+      distribution_key?: string;
+      distribution_name?: string;
+      release_note?: string;
+      disable_notify?: boolean;
+    },
+  ): Promise<unknown> {
+    const fileBuffer = await readFile(filePath);
+    const fileName = basename(filePath);
+    const blob = new Blob([fileBuffer]);
+
+    const formData = new FormData();
+    formData.append("file", blob, fileName);
+
+    if (options?.message) formData.append("message", options.message);
+    if (options?.distribution_key)
+      formData.append("distribution_key", options.distribution_key);
+    if (options?.distribution_name)
+      formData.append("distribution_name", options.distribution_name);
+    if (options?.release_note)
+      formData.append("release_note", options.release_note);
+    if (options?.disable_notify) formData.append("disable_notify", "true");
+
+    return this.request("POST", `/api/users/${ownerName}/apps`, { formData });
+  }
+
+  // --- Distribution management ---
+
+  async createDistribution(
+    ownerName: string,
+    platform: string,
+    appId: string,
+    params: {
+      title: string;
+      release_note?: string;
+      revision?: number;
+      active?: boolean;
+    },
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/users/${ownerName}/platforms/${platform}/apps/${appId}/distributions`,
+      { body: params as Record<string, unknown> },
+    );
+  }
+
+  async listDistributions(
+    ownerName: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/users/${ownerName}/platforms/${platform}/apps/${appId}/distributions`,
+    );
+  }
+
+  async getDistribution(accessKey: string): Promise<unknown> {
+    return this.request("GET", `/api/distributions/${accessKey}`);
+  }
+
+  async updateDistribution(
+    accessKey: string,
+    params: {
+      title?: string;
+      active: boolean;
+      release_scope: string;
+      passcode?: string;
+      release_note?: string;
+    },
+  ): Promise<unknown> {
+    return this.request("PUT", `/api/distributions/${accessKey}`, {
+      body: params as Record<string, unknown>,
+    });
+  }
+
+  async deleteDistribution(accessKey: string): Promise<unknown> {
+    return this.request("DELETE", `/api/distributions/${accessKey}`);
+  }
+
+  // --- iOS UDIDs ---
+
+  async getUdids(ownerName: string, appId: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/users/${ownerName}/platforms/ios/apps/${appId}/udids`,
+    );
+  }
+
+  // --- Workspace member management ---
+
+  async addWorkspaceMember(workspace: string, user: string): Promise<unknown> {
+    return this.request("POST", `/api/enterprises/${workspace}/users`, {
+      body: { user },
+    });
+  }
+
+  async removeWorkspaceMember(
+    workspace: string,
+    user: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/api/enterprises/${workspace}/users/${user}`,
+    );
+  }
+
+  // --- Project member management ---
+
+  async addProjectMember(
+    workspace: string,
+    project: string,
+    user: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/enterprises/${workspace}/organizations/${project}/users`,
+      { body: { user } },
+    );
+  }
+
+  async removeProjectMember(
+    workspace: string,
+    project: string,
+    user: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/api/enterprises/${workspace}/organizations/${project}/users/${user}`,
+    );
+  }
+
+  // --- Team member management ---
+
+  async addTeamMember(
+    project: string,
+    team: string,
+    user: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/organizations/${project}/teams/${team}/users`,
+      { body: { user } },
+    );
+  }
+
+  async listTeamMembers(project: string, team: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/organizations/${project}/teams/${team}/users`,
+    );
+  }
+
+  async removeTeamMember(
+    project: string,
+    team: string,
+    user: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/api/organizations/${project}/teams/${team}/users/${user}`,
+    );
+  }
+
+  // --- App team assignment ---
+
+  async assignTeamToApp(
+    project: string,
+    platform: string,
+    appId: string,
+    team: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/organizations/${project}/platforms/${platform}/apps/${appId}/teams`,
+      { body: { team } },
+    );
+  }
+
+  // --- Shared teams ---
+
+  async createSharedTeam(workspace: string, name: string): Promise<unknown> {
+    return this.request("POST", `/api/enterprises/${workspace}/sharedteams`, {
+      body: { name },
+    });
+  }
+
+  async addSharedTeamMember(
+    workspace: string,
+    sharedTeamId: string,
+    params: { email?: string; username?: string; description?: string },
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`,
+      { body: params as Record<string, unknown> },
+    );
+  }
+
+  async listSharedTeamMembers(
+    workspace: string,
+    sharedTeamId: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`,
+    );
+  }
+
+  async removeSharedTeamMember(
+    workspace: string,
+    sharedTeamId: string,
+    userId: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users/${userId}`,
+    );
+  }
+
+  async assignSharedTeamToApp(
+    project: string,
+    platform: string,
+    appId: string,
+    team: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/organizations/${project}/platforms/${platform}/apps/${appId}/sharedteams`,
+      { body: { team } },
+    );
+  }
+}

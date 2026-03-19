@@ -1,0 +1,364 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { DeployGateClient, DeployGateApiError } from "../client.js";
+import { registerAuthTools } from "../tools/auth.js";
+import { registerUploadTools } from "../tools/upload.js";
+import { registerDistributionTools } from "../tools/distributions.js";
+import { registerUdidTools } from "../tools/udids.js";
+import { registerNotificationTools } from "../tools/notifications.js";
+import { registerMemberTools } from "../tools/members.js";
+import { registerSharedTeamTools } from "../tools/shared-teams.js";
+
+// Helper to capture registered tools from McpServer
+function createToolCapture() {
+  const tools = new Map<
+    string,
+    { description: string; handler: (...args: any[]) => any }
+  >();
+
+  const server = {
+    tool: vi.fn((...args: any[]) => {
+      // McpServer.tool() can be called with different arities:
+      // (name, description, schema, handler) or (name, description, handler)
+      let name: string;
+      let description: string;
+      let handler: (...args: any[]) => any;
+
+      if (args.length >= 4) {
+        [name, description, , handler] = args;
+      } else {
+        [name, description, handler] = args;
+      }
+
+      tools.set(name, { description, handler });
+    }),
+  } as unknown as McpServer;
+
+  return { server, tools };
+}
+
+// Create a mock client with all methods
+function createMockClient() {
+  return {
+    getOrganizations: vi.fn(),
+    uploadApp: vi.fn(),
+    createDistribution: vi.fn(),
+    listDistributions: vi.fn(),
+    getDistribution: vi.fn(),
+    updateDistribution: vi.fn(),
+    deleteDistribution: vi.fn(),
+    getUdids: vi.fn(),
+    addWorkspaceMember: vi.fn(),
+    addProjectMember: vi.fn(),
+    addTeamMember: vi.fn(),
+    assignTeamToApp: vi.fn(),
+    listTeamMembers: vi.fn(),
+    removeWorkspaceMember: vi.fn(),
+    removeProjectMember: vi.fn(),
+    removeTeamMember: vi.fn(),
+    createSharedTeam: vi.fn(),
+    addSharedTeamMember: vi.fn(),
+    listSharedTeamMembers: vi.fn(),
+    removeSharedTeamMember: vi.fn(),
+    assignSharedTeamToApp: vi.fn(),
+  } as unknown as DeployGateClient;
+}
+
+describe("auth tools", () => {
+  it("registers get_user_info tool", () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerAuthTools(server, client);
+    expect(tools.has("get_user_info")).toBe(true);
+  });
+
+  it("get_user_info calls getOrganizations and returns results", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    const orgs = [{ name: "workspace1" }];
+    (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue(
+      orgs,
+    );
+    registerAuthTools(server, client);
+
+    const handler = tools.get("get_user_info")!.handler;
+    const result = await handler({});
+    expect(result.content[0].text).toBe(JSON.stringify(orgs, null, 2));
+  });
+});
+
+describe("upload tools", () => {
+  it("registers upload_app tool", () => {
+    const { server, tools } = createToolCapture();
+    registerUploadTools(server, createMockClient());
+    expect(tools.has("upload_app")).toBe(true);
+  });
+});
+
+describe("distribution tools", () => {
+  it("registers all distribution tools", () => {
+    const { server, tools } = createToolCapture();
+    registerDistributionTools(server, createMockClient());
+    expect(tools.has("create_distribution")).toBe(true);
+    expect(tools.has("list_distributions")).toBe(true);
+    expect(tools.has("get_distribution")).toBe(true);
+    expect(tools.has("update_distribution")).toBe(true);
+    expect(tools.has("delete_distribution")).toBe(true);
+  });
+});
+
+describe("UDID tools", () => {
+  it("filters unprovisioned devices when requested", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    const udids = [
+      { udid: "A", user_name: "t1", device_name: "iPhone", is_provisioned: true },
+      { udid: "B", user_name: "t2", device_name: "iPad", is_provisioned: false },
+    ];
+    (client.getUdids as ReturnType<typeof vi.fn>).mockResolvedValue(udids);
+    registerUdidTools(server, client);
+
+    const handler = tools.get("get_udids")!.handler;
+
+    // Without filter
+    const allResult = await handler({
+      owner_name: "owner",
+      app_id: "com.example",
+    });
+    expect(JSON.parse(allResult.content[0].text)).toHaveLength(2);
+
+    // With filter
+    const filteredResult = await handler({
+      owner_name: "owner",
+      app_id: "com.example",
+      unprovisioned_only: true,
+    });
+    const filtered = JSON.parse(filteredResult.content[0].text);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].udid).toBe("B");
+  });
+});
+
+describe("notification tools", () => {
+  it("generates distribution-level URL", async () => {
+    const { server, tools } = createToolCapture();
+    registerNotificationTools(server);
+
+    const handler = tools.get("get_notification_settings_url")!.handler;
+    const result = await handler({
+      level: "distribution",
+      access_key: "abc123",
+    });
+    expect(result.content[0].text).toContain(
+      "https://deploygate.com/distributions/abc123/notification_settings/new",
+    );
+  });
+
+  it("generates organization app-level URL", async () => {
+    const { server, tools } = createToolCapture();
+    registerNotificationTools(server);
+
+    const handler = tools.get("get_notification_settings_url")!.handler;
+    const result = await handler({
+      level: "app",
+      owner_name: "my-org",
+      owner_type: "organization",
+      platform: "android",
+      app_id: "com.example.app",
+    });
+    expect(result.content[0].text).toContain(
+      "https://deploygate.com/organizations/my-org/platforms/android/apps/com.example.app/notification_settings/new",
+    );
+  });
+
+  it("generates user app-level URL with /signup path", async () => {
+    const { server, tools } = createToolCapture();
+    registerNotificationTools(server);
+
+    const handler = tools.get("get_notification_settings_url")!.handler;
+    const result = await handler({
+      level: "app",
+      owner_name: "my-user",
+      owner_type: "user",
+      platform: "ios",
+      app_id: "com.example.app",
+    });
+    expect(result.content[0].text).toContain(
+      "https://deploygate.com/users/my-user/platforms/ios/apps/com.example.app/notification_settings/signup",
+    );
+  });
+
+  it("returns error when required params are missing", async () => {
+    const { server, tools } = createToolCapture();
+    registerNotificationTools(server);
+
+    const handler = tools.get("get_notification_settings_url")!.handler;
+    const result = await handler({ level: "distribution" });
+    expect(result.isError).toBe(true);
+  });
+});
+
+describe("member tools", () => {
+  it("add_member orchestrates all steps for developer", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
+      {},
+    );
+    (client.addProjectMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    const result = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "dev@example.com",
+      role: "developer",
+    });
+
+    expect(client.addWorkspaceMember).toHaveBeenCalledWith(
+      "ws",
+      "dev@example.com",
+    );
+    expect(client.addProjectMember).toHaveBeenCalledWith(
+      "ws",
+      "proj",
+      "dev@example.com",
+    );
+    expect(client.addTeamMember).toHaveBeenCalledWith(
+      "proj",
+      "developer",
+      "dev@example.com",
+    );
+    expect(client.assignTeamToApp).not.toHaveBeenCalled();
+    expect(result.content[0].text).toContain("developer");
+  });
+
+  it("add_member orchestrates 4 steps for tester", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
+      {},
+    );
+    (client.addProjectMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.assignTeamToApp as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    const result = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "tester@example.com",
+      role: "tester",
+      platform: "ios",
+      app_id: "com.example.app",
+    });
+
+    expect(client.assignTeamToApp).toHaveBeenCalledWith(
+      "proj",
+      "ios",
+      "com.example.app",
+      "tester",
+    );
+    expect(result.content[0].text).toContain("tester");
+  });
+
+  it("add_member requires platform/app_id for tester", async () => {
+    const { server, tools } = createToolCapture();
+    registerMemberTools(server, createMockClient());
+
+    const handler = tools.get("add_member")!.handler;
+    const result = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "tester@example.com",
+      role: "tester",
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it("add_member handles already_joined_member gracefully", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new DeployGateApiError({
+        error: true,
+        message: "Already joined",
+        error_type: "already_joined_member",
+      }),
+    );
+    (client.addProjectMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    const result = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "existing@example.com",
+      role: "developer",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain("Already in workspace");
+  });
+
+  it("add_member returns upgrade message on seat limit exceeded", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new DeployGateApiError({
+        error: true,
+        message: "Seat limit exceeded",
+        error_type: "num_of_member_seats_exceeded",
+      }),
+    );
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    const result = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "new@example.com",
+      role: "developer",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("upgrade");
+  });
+});
+
+describe("shared team tools", () => {
+  it("registers all shared team tools", () => {
+    const { server, tools } = createToolCapture();
+    registerSharedTeamTools(server, createMockClient());
+    expect(tools.has("create_shared_team")).toBe(true);
+    expect(tools.has("add_shared_team_member")).toBe(true);
+    expect(tools.has("assign_shared_team_to_app")).toBe(true);
+  });
+
+  it("add_shared_team_member validates email XOR username", async () => {
+    const { server, tools } = createToolCapture();
+    registerSharedTeamTools(server, createMockClient());
+
+    const handler = tools.get("add_shared_team_member")!.handler;
+
+    // Neither provided
+    const result1 = await handler({
+      workspace: "ws",
+      shared_team_id: "t1",
+    });
+    expect(result1.isError).toBe(true);
+
+    // Both provided
+    const result2 = await handler({
+      workspace: "ws",
+      shared_team_id: "t1",
+      email: "a@b.com",
+      username: "user1",
+    });
+    expect(result2.isError).toBe(true);
+  });
+});
