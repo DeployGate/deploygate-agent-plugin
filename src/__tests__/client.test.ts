@@ -45,12 +45,46 @@ describe("DeployGateClient", () => {
       await expect(client.getOrganizations()).rejects.toThrow(
         DeployGateApiError,
       );
-      await expect(
-        client.getOrganizations().catch((e) => {
-          expect(e.errorType).toBe("unauthorized");
-          throw e;
+    });
+
+    it("includes error_type and message on unauthorized (401)", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({
+          error: true,
+          message: "Unauthorized",
+          error_type: "unauthorized",
         }),
-      ).rejects.toThrow();
+      );
+
+      try {
+        await client.getOrganizations();
+        expect.unreachable("should have thrown");
+      } catch (e) {
+        expect(e).toBeInstanceOf(DeployGateApiError);
+        const err = e as DeployGateApiError;
+        expect(err.errorType).toBe("unauthorized");
+        expect(err.message).toBe("Unauthorized");
+      }
+    });
+
+    it("includes invalid_params on validation error", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({
+          error: true,
+          message: "Validation failed",
+          error_type: "invalid_params",
+          invalid_params: [{ field: "title", reason: "too long" }],
+        }),
+      );
+
+      try {
+        await client.getOrganizations();
+        expect.unreachable("should have thrown");
+      } catch (e) {
+        const err = e as DeployGateApiError;
+        expect(err.invalidParams).toHaveLength(1);
+        expect(err.invalidParams![0].field).toBe("title");
+      }
     });
   });
 

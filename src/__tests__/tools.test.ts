@@ -154,7 +154,7 @@ describe("notification tools", () => {
     );
   });
 
-  it("generates organization app-level URL", async () => {
+  it("generates organization app-level URL with /new path", async () => {
     const { server, tools } = createToolCapture();
     registerNotificationTools(server);
 
@@ -166,12 +166,15 @@ describe("notification tools", () => {
       platform: "android",
       app_id: "com.example.app",
     });
-    expect(result.content[0].text).toContain(
-      "https://deploygate.com/organizations/my-org/platforms/android/apps/com.example.app/notification_settings/new",
+    const url = result.content[0].text;
+    expect(url).toContain(
+      "/organizations/my-org/platforms/android/apps/com.example.app/notification_settings/new",
     );
+    // Must NOT contain /signup for organization-owned apps
+    expect(url).not.toContain("/notification_settings/signup");
   });
 
-  it("generates user app-level URL with /signup path", async () => {
+  it("generates user app-level URL with /signup path (NOT /new)", async () => {
     const { server, tools } = createToolCapture();
     registerNotificationTools(server);
 
@@ -183,17 +186,34 @@ describe("notification tools", () => {
       platform: "ios",
       app_id: "com.example.app",
     });
-    expect(result.content[0].text).toContain(
-      "https://deploygate.com/users/my-user/platforms/ios/apps/com.example.app/notification_settings/signup",
+    const url = result.content[0].text;
+    expect(url).toContain(
+      "/users/my-user/platforms/ios/apps/com.example.app/notification_settings/signup",
     );
+    // Verify the path uses /users/ not /organizations/
+    expect(url).not.toContain("/organizations/");
   });
 
-  it("returns error when required params are missing", async () => {
+  it("returns error when distribution access_key is missing", async () => {
     const { server, tools } = createToolCapture();
     registerNotificationTools(server);
 
     const handler = tools.get("get_notification_settings_url")!.handler;
     const result = await handler({ level: "distribution" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("access_key");
+  });
+
+  it("returns error when app-level params are incomplete", async () => {
+    const { server, tools } = createToolCapture();
+    registerNotificationTools(server);
+
+    const handler = tools.get("get_notification_settings_url")!.handler;
+    const result = await handler({
+      level: "app",
+      owner_name: "my-org",
+      // missing owner_type, platform, app_id
+    });
     expect(result.isError).toBe(true);
   });
 });
@@ -327,6 +347,57 @@ describe("member tools", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("upgrade");
+    expect(result.content[0].text).toContain("plan");
+  });
+
+  it("add_member continues when project/team additions are upserts", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    // All three succeed (project and team are upserts, no error on duplicate)
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
+      {},
+    );
+    (client.addProjectMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    const result = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "existing@example.com",
+      role: "owner",
+    });
+
+    expect(result.isError).toBeUndefined();
+    // All three steps complete
+    expect(client.addWorkspaceMember).toHaveBeenCalledOnce();
+    expect(client.addProjectMember).toHaveBeenCalledOnce();
+    expect(client.addTeamMember).toHaveBeenCalledWith(
+      "proj",
+      "owner",
+      "existing@example.com",
+    );
+    expect(result.content[0].text).toContain("owner");
+  });
+
+  it("add_member propagates unexpected errors", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("Network error"),
+    );
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    await expect(
+      handler({
+        workspace: "ws",
+        project: "proj",
+        user: "user@example.com",
+        role: "developer",
+      }),
+    ).rejects.toThrow("Network error");
   });
 });
 
