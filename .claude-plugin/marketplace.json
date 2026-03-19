@@ -1,0 +1,15 @@
+{
+  "name": "deploygate-marketplace",
+  "owner": {
+    "name": "DeployGate",
+    "email": "support@deploygate.com"
+  },
+  "plugins": [
+    {
+      "name": "deploygate",
+      "source": ".",
+      "description": "Upload apps, manage distribution pages, add team members, and set up CI/CD integration with DeployGate",
+      "version": "1.0.0"
+    }
+  ]
+}

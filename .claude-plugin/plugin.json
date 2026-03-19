@@ -1,0 +1,22 @@
+{
+  "name": "deploygate",
+  "version": "1.0.0",
+  "description": "DeployGate integration for Claude Code — upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
+  "author": {
+    "name": "DeployGate",
+    "email": "support@deploygate.com"
+  },
+  "homepage": "https://deploygate.com",
+  "license": "MIT",
+  "keywords": [
+    "deploygate",
+    "mobile",
+    "distribution",
+    "ios",
+    "android",
+    "testing",
+    "ci-cd"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
