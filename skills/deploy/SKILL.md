@@ -1,4 +1,9 @@
-# /deploy — Build and upload app to DeployGate
+---
+name: deploy
+description: Build the current project and upload the app binary to DeployGate
+---
+
+# Build and upload app to DeployGate
 
 Build the current project and upload the binary to DeployGate.
 

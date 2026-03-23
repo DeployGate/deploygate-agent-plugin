@@ -1,3 +1,8 @@
+---
+name: sdk-setup
+description: Add the DeployGate SDK to your Android or iOS app for crash reporting and screen capture
+---
+
 # DeployGate SDK Setup
 
 Guide users through adding the DeployGate SDK to their Android or iOS app for crash reporting, remote logging, and screen capture bug reporting.

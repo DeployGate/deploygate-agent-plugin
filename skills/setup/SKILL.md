@@ -1,3 +1,8 @@
+---
+name: setup
+description: Start DeployGate onboarding — set up app distribution from first upload to team-wide deployment
+---
+
 # DeployGate Onboarding
 
 Guide users through setting up DeployGate for app distribution — from first upload to team-wide deployment.

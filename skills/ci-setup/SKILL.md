@@ -1,3 +1,8 @@
+---
+name: ci-setup
+description: Set up CI/CD integration for automated DeployGate uploads and PR-based distribution
+---
+
 # DeployGate CI/CD Setup
 
 Guide users through setting up CI/CD integration for automated app uploads and PR-based distribution.
