@@ -57,17 +57,50 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`
 
 An IPA file is required for uploading to DeployGate. Simulator-only builds (.app) cannot be uploaded on their own.
 
+**1. Build the IPA (required):**
+
 ```bash
 fastlane gym --scheme "MyApp" --export_method "development"
 ```
 
 Or: Xcode → Product → Archive → Distribute App → Development → Export
 
-> **Instant Device support (optional):** To enable Instant Device (browser-based app preview), you can additionally upload a simulator build (.app directory zipped) using the `ios_simulator_zip` parameter alongside the IPA. The IPA (`file` parameter) is always required — a simulator zip alone is not sufficient.
+**2. Build the simulator zip for Instant Device (optional but recommended):**
 
-Then upload using the `upload_app` tool:
+To enable Instant Device (browser-based app preview on PC), build a simulator version and zip it:
+
+Using xcodebuild:
+```bash
+xcodebuild -scheme "MyApp" -sdk iphonesimulator -configuration Debug -derivedDataPath build
+cd build/Build/Products/Debug-iphonesimulator
+zip -r MyApp-simulator.zip MyApp.app
+```
+
+Using fastlane (add a lane to Fastfile):
+```ruby
+lane :build_simulator do
+  xcodebuild(
+    scheme: "MyApp",
+    sdk: "iphonesimulator",
+    configuration: "Debug",
+    derivedDataPath: "build",
+    xcargs: "ONLY_ACTIVE_ARCH=NO"
+  )
+  zip(
+    path: "build/Build/Products/Debug-iphonesimulator/MyApp.app",
+    output_path: "build/MyApp-simulator.zip"
+  )
+end
+```
+
+The resulting `.zip` file is passed as `ios_simulator_zip` when uploading. The IPA (`file_path`) is always required — a simulator zip alone is not sufficient.
+
+**3. Upload:**
+
+Upload using the `upload_app` tool:
 - `owner_name`: from `get_user_info`
-- `file_path`: path to the built IPA or APK/AAB
+- `file_path`: path to the built IPA
+- `ios_simulator_zip` (optional): path to the simulator .zip file for Instant Device
 - `message`: include Git info — e.g. `"feature/login (abc1234)"` or `"PR #42: Login redesign (abc1234)"`
 
 The `message` field greatly improves build searchability. Auto-detect Git branch and commit hash if available:

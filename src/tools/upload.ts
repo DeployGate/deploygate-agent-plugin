@@ -43,6 +43,12 @@ export function registerUploadTools(
         .boolean()
         .optional()
         .describe("Disable push notification to testers (iOS only)"),
+      ios_simulator_zip: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path to the iOS simulator build zip file. Enables Instant Device (browser-based app preview). Build with `xcodebuild -sdk iphonesimulator` and zip the .app directory. Must be uploaded together with an IPA (file_path).",
+        ),
     },
     async (args) => {
       const results = await client.uploadApp(args.owner_name, args.file_path, {
@@ -51,6 +57,7 @@ export function registerUploadTools(
         distribution_name: args.distribution_name,
         release_note: args.release_note,
         disable_notify: args.disable_notify,
+        ios_simulator_zip: args.ios_simulator_zip,
       });
       return {
         content: [{ type: "text", text: JSON.stringify(results, null, 2) }],

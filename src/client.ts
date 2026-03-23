@@ -100,6 +100,7 @@ export class DeployGateClient {
       distribution_name?: string;
       release_note?: string;
       disable_notify?: boolean;
+      ios_simulator_zip?: string;
     },
   ): Promise<unknown> {
     const fileBuffer = await readFile(filePath);
@@ -117,6 +118,12 @@ export class DeployGateClient {
     if (options?.release_note)
       formData.append("release_note", options.release_note);
     if (options?.disable_notify) formData.append("disable_notify", "true");
+    if (options?.ios_simulator_zip) {
+      const simBuffer = await readFile(options.ios_simulator_zip);
+      const simFileName = basename(options.ios_simulator_zip);
+      const simBlob = new Blob([simBuffer]);
+      formData.append("ios_simulator_zip", simBlob, simFileName);
+    }
 
     return this.request("POST", `/api/users/${ownerName}/apps`, { formData });
   }
