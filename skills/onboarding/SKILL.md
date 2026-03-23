@@ -97,20 +97,30 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`
 
 For iOS, build BOTH an IPA and a simulator zip. The IPA is required for device installation. The simulator zip enables Instant Device (browser-based app preview) — always build both.
 
-**1. Build the IPA:**
+**0. Check for fastlane (iOS only):**
+
+Check if fastlane is installed (`which fastlane`). If not, recommend installing it:
 
 ```bash
-xcodebuild -scheme "MyApp" -sdk iphoneos -configuration Debug -archivePath /tmp/MyApp.xcarchive archive
+brew install fastlane
 ```
 
-Then create the IPA:
+fastlane is used for IPA builds in this step and will also be needed later for UDID registration and provisioning profile management (Step 5b). Installing it now saves setup time later.
+
+**1. Build the IPA:**
+
+If fastlane is available:
 ```bash
+fastlane gym --scheme "MyApp" --export_method "development"
+```
+
+Otherwise, use xcodebuild:
+```bash
+xcodebuild -scheme "MyApp" -sdk iphoneos -configuration Debug -archivePath /tmp/MyApp.xcarchive archive
 mkdir -p /tmp/MyApp-ipa/Payload
 cp -r /tmp/MyApp.xcarchive/Products/Applications/MyApp.app /tmp/MyApp-ipa/Payload/
 cd /tmp/MyApp-ipa && zip -r /tmp/MyApp.ipa Payload
 ```
-
-> If the project already uses fastlane, `fastlane gym --scheme "MyApp" --export_method "development"` can be used instead. Do not suggest installing fastlane if it's not already set up — xcodebuild is sufficient.
 
 **2. Build the simulator zip for Instant Device:**
 
@@ -207,7 +217,7 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
 
 **Claude Code can automate the entire UDID registration process.** When the user says "add UDIDs" or "a tester can't install", execute the following steps automatically:
 
-> Note: Steps 2-4 use fastlane for Apple Developer Portal interaction. If fastlane is not installed, guide the user to install it (`gem install fastlane` or `brew install fastlane`) — for UDID registration, fastlane is the most practical tool.
+> Note: Steps 2-3 use fastlane for Apple Developer Portal interaction. If fastlane was not installed in Step 2, install it now (`brew install fastlane`).
 
 1. **Get unregistered devices** using the `get_udids` tool with `unprovisioned_only: true`
 
