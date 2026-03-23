@@ -1,44 +1,37 @@
 # DeployGate Claude Plugin
 
-DeployGate integration for Claude Code — upload apps, manage distribution pages, set up CI/CD, and onboard your team.
-
-## Prerequisites
-
-- Node.js >= 20.0.0
-- DeployGate account with an API token ([Get your token](https://deploygate.com/settings))
+DeployGate integration for Claude Code — upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).
 
 ## Installation
 
-### As a Claude Code plugin
+Add the marketplace and install the plugin:
 
-```bash
-/plugin install deploygate@deploygate-marketplace
+```
+/plugin marketplace add DeployGate/deploygate-claude-plugin
 ```
 
-### Manual setup
+Then open `/plugin` and install "deploygate" from the Discover tab.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/DeployGate/deploygate-claude-plugin.git
-   cd deploygate-claude-plugin
-   npm install
-   npm run build
-   ```
+## Getting Started
 
-2. Add to your Claude Code MCP configuration (`.mcp.json`):
-   ```json
-   {
-     "mcpServers": {
-       "deploygate": {
-         "command": "node",
-         "args": ["/path/to/deploygate-claude-plugin/dist/index.js"],
-         "env": {
-           "DEPLOYGATE_API_TOKEN": "your-api-token"
-         }
-       }
-     }
-   }
-   ```
+After installation, run `/setup` (or say "DeployGateのセットアップをしたい") to start the guided onboarding flow:
+
+1. **Account creation** — sign up and set your API token via `set_api_token`
+2. **App upload** — build and upload your IPA/APK/AAB
+3. **Distribution page** — create a distribution page with an install link
+4. **Notifications** — connect Slack/Teams/Chatwork
+5. **iOS device setup** — UDID registration for Ad Hoc builds (if applicable)
+
+If you already have an API token, you can set `DEPLOYGATE_API_TOKEN` as an environment variable in your MCP server configuration for automatic authentication.
+
+## Slash Commands
+
+| Command | Description |
+|---|---|
+| `/setup` | Start the DeployGate onboarding flow |
+| `/deploy` | Build and upload the current project to DeployGate |
+
+Commands are namespaced as `/deploygate:setup` and `/deploygate:deploy` when used as a plugin.
 
 ## MCP Tools
 
@@ -46,22 +39,24 @@ DeployGate integration for Claude Code — upload apps, manage distribution page
 
 | Tool | Description |
 |---|---|
-| `get_user_info` | Get current user information by retrieving organizations associated with the API token. Returns workspace names and default projects. |
+| `set_api_token` | Set the API token for this session. Validates the token and returns user information. For persistent config, use the `DEPLOYGATE_API_TOKEN` environment variable. |
+| `get_user_info` | Get current user information (workspace names, projects) from the API token. |
 
 ### App Upload
 
 | Tool | Description |
 |---|---|
-| `upload_app` | Upload an app binary (IPA/APK/AAB) to DeployGate. Supports optional distribution page targeting. |
+| `upload_app` | Upload an app binary (IPA/APK/AAB) to DeployGate. |
 
 **Parameters:**
 - `owner_name` (required): Owner name (user or organization)
 - `file_path` (required): Absolute path to the app binary
 - `message`: Build description (max 32,766 bytes; auto-truncated if exceeded)
 - `distribution_key`: Distribution page key to update. **Takes priority over `distribution_name`.**
-- `distribution_name`: Distribution page name. Creates a new page (with `active=false`) if not found. Ignored if `distribution_key` is also specified.
+- `distribution_name`: Distribution page name. Creates a new page if not found. Ignored if `distribution_key` is also specified.
 - `release_note`: Release note for the distribution page
 - `disable_notify`: Disable push notification to testers (iOS only)
+- `ios_simulator_zip`: Path to iOS simulator build zip for Instant Device (browser-based preview). Must be uploaded together with an IPA.
 
 ### Distribution Page Management
 
@@ -70,80 +65,68 @@ DeployGate integration for Claude Code — upload apps, manage distribution page
 | `create_distribution` | Create a new distribution page. Returns `access_key` for the URL `https://deploygate.com/distributions/{access_key}` |
 | `list_distributions` | List all distribution pages for an app |
 | `get_distribution` | Get details of a specific distribution page |
-| `update_distribution` | Update a distribution page. **`active` and `release_scope` are always required** — use `get_distribution` first to retrieve current values when only changing the title. |
+| `update_distribution` | Update a distribution page. **`active` and `release_scope` are always required** — use `get_distribution` first to retrieve current values. |
 | `delete_distribution` | Delete a distribution page. Uploaded builds (binaries) are preserved. |
 
-**Release scope options** (`release_scope` parameter):
+**Release scope options** (`release_scope`):
 - `public` — publicly accessible, indexable by search engines
 - `unlisted` — accessible to anyone with the link (default)
-- `passcode` — requires a passcode to access (`passcode` parameter required)
+- `passcode` — requires a passcode (`passcode` parameter required)
 - `authorized_only` — only accessible to logged-in team members
 
 ### iOS UDID Management
 
 | Tool | Description |
 |---|---|
-| `get_udids` | Get iOS device UDIDs for an app. Use `unprovisioned_only=true` to find devices that need to be added to the provisioning profile for Ad Hoc distribution. |
+| `get_udids` | Get iOS device UDIDs for an app. Use `unprovisioned_only=true` to find devices not yet in the provisioning profile. |
 
 ### Notification Settings
 
 | Tool | Description |
 |---|---|
-| `get_notification_settings_url` | Generate the URL for configuring Slack/Teams/Chatwork notifications. Supports distribution-level and app-level settings. Note: Organization-owned and user-owned apps have different URL paths. |
+| `get_notification_settings_url` | Generate the URL for configuring Slack/Teams/Chatwork notifications. Supports distribution-level and app-level settings. |
 
 ### Member Management
 
 | Tool | Description |
 |---|---|
-| `add_member` | Add a member with a specified role (owner/developer/tester). Orchestrates 3-4 API calls automatically. Handles duplicates gracefully. Free plan limit: 2 members. |
-| `list_members` | List members of a specific team in a project |
-| `remove_member` | Remove a member from a team (they remain in the workspace/project) |
-
-**Member addition flow:**
-1. Add to workspace → duplicate returns "already_joined_member" (skipped)
-2. Add to project → upsert (silent success on duplicate)
-3. Add to team → upsert (silent success on duplicate)
-4. (Tester only) Assign tester team to app
+| `add_member` | Add a member with a specified role (owner/developer/tester). Orchestrates 3-4 API calls in one command. Free plan limit: 2 members. |
+| `list_members` | List members of a specific team |
+| `remove_member` | Remove a member from a team |
 
 ### Shared Team Management
 
 | Tool | Description |
 |---|---|
 | `create_shared_team` | Create a workspace-level shared team for cross-project use |
-| `add_shared_team_member` | Add a member to a shared team. Specify `email` **or** `username`, not both. |
-| `assign_shared_team_to_app` | Assign a shared team to an app (members get tester-level access) |
-
-## API Response Format
-
-All DeployGate API responses follow the V1 envelope format:
-
-**Success:**
-```json
-{ "error": false, "results": { ... } }
-```
-
-**Error:**
-```json
-{ "error": true, "message": "...", "because": "...", "error_type": "..." }
-```
-
-Validation errors include an additional `invalid_params` array.
+| `add_shared_team_member` | Add a member to a shared team (`email` or `username`, not both) |
+| `assign_shared_team_to_app` | Assign a shared team to an app (tester-level access) |
 
 ## Skills
 
-The plugin includes onboarding skills for guided setup:
-
-- **`skills/onboarding/`** — Full onboarding flow: account setup, app upload, distribution, notifications
-- **`skills/ci-setup/`** — CI/CD integration with GitHub Actions, Bitrise, CircleCI
-- **`skills/sdk-setup/`** — Android/iOS SDK integration guide
+| Skill | Description |
+|---|---|
+| `onboarding` | Full onboarding flow with step-by-step progress display |
+| `ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
+| `sdk-setup` | Android/iOS SDK integration (crash reporting, screen capture) |
 
 ## GitHub Actions Templates
 
-Pre-built workflow templates are available in `templates/`:
+Pre-built workflow templates in `templates/`:
 
-- **`deploygate-upload.yml`** — Upload to DeployGate on push to main
-- **`deploygate-pr.yml`** — PR-based distribution with automatic page creation/cleanup
+| Template | Description |
+|---|---|
+| `deploygate-upload.yml` | Upload to DeployGate on push to main |
+| `deploygate-pr.yml` | PR-based distribution — auto-create distribution page with QR code, cleanup on close |
+
+## Development
+
+```bash
+npm install        # Install dependencies
+npm run build      # Compile TypeScript + bundle with esbuild
+npm test           # Run tests (92 tests)
+```
 
 ## License
 
-MIT
+MIT — DeployGate Inc.
