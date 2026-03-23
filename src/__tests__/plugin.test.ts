@@ -119,27 +119,28 @@ describe(".mcp.json", () => {
   });
 });
 
-describe("skills as slash commands", () => {
-  it("skills/setup/SKILL.md exists", () => {
-    expect(existsSync(resolve(ROOT, "skills/setup/SKILL.md"))).toBe(true);
+describe("commands/ (slash commands)", () => {
+  it("commands/setup.md exists", () => {
+    expect(existsSync(resolve(ROOT, "commands/setup.md"))).toBe(true);
   });
 
-  it("skills/deploy/SKILL.md exists", () => {
-    expect(existsSync(resolve(ROOT, "skills/deploy/SKILL.md"))).toBe(true);
+  it("commands/deploy.md exists", () => {
+    expect(existsSync(resolve(ROOT, "commands/deploy.md"))).toBe(true);
   });
 
-  it("setup skill contains progress display instructions", () => {
+  it("setup command contains full skill content (progress display, phases)", () => {
     const content = readFileSync(
-      resolve(ROOT, "skills/setup/SKILL.md"),
+      resolve(ROOT, "commands/setup.md"),
       "utf-8",
     );
     expect(content).toContain("Progress Display");
     expect(content).toContain("Phase 1");
+    expect(content).toContain("set_api_token");
   });
 
-  it("deploy skill contains upload instructions", () => {
+  it("deploy command contains upload instructions", () => {
     const content = readFileSync(
-      resolve(ROOT, "skills/deploy/SKILL.md"),
+      resolve(ROOT, "commands/deploy.md"),
       "utf-8",
     );
     expect(content).toContain("upload_app");
