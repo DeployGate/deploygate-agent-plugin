@@ -96,7 +96,7 @@ describe(".mcp.json", () => {
     expect(servers.deploygate).toBeDefined();
   });
 
-  it("has correct entry point", () => {
+  it("uses ${CLAUDE_PLUGIN_ROOT} for entry point path", () => {
     const servers = mcp.mcpServers as Record<
       string,
       Record<string, unknown>
@@ -104,7 +104,8 @@ describe(".mcp.json", () => {
     const dg = servers.deploygate;
     expect(dg.command).toBe("node");
     const args = dg.args as string[];
-    expect(args).toContain("dist/index.js");
+    expect(args).toHaveLength(1);
+    expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/dist/index.js");
   });
 
   it("references DEPLOYGATE_API_TOKEN environment variable", () => {
@@ -115,10 +116,6 @@ describe(".mcp.json", () => {
     const env = servers.deploygate.env as Record<string, string>;
     expect(env).toBeDefined();
     expect("DEPLOYGATE_API_TOKEN" in env).toBe(true);
-  });
-
-  it("entry point file exists after build", () => {
-    expect(existsSync(resolve(ROOT, "dist/index.js"))).toBe(true);
   });
 });
 

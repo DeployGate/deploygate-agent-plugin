@@ -11,20 +11,11 @@ import { registerNotificationTools } from "./tools/notifications.js";
 import { registerMemberTools } from "./tools/members.js";
 import { registerSharedTeamTools } from "./tools/shared-teams.js";
 
-const token = process.env.DEPLOYGATE_API_TOKEN;
-if (!token) {
-  console.error(
-    "Error: DEPLOYGATE_API_TOKEN environment variable is not set.\n" +
-      "Get your API token at https://deploygate.com/settings",
-  );
-  process.exit(1);
-}
-
-const client = new DeployGateClient(token);
+const client = new DeployGateClient(process.env.DEPLOYGATE_API_TOKEN);
 
 const server = new McpServer({
   name: "deploygate",
-  version: "0.1.0",
+  version: "1.0.0",
 });
 
 registerAuthTools(server, client);

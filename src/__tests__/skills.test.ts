@@ -10,6 +10,7 @@ function loadSkill(relativePath: string): string {
 
 // All MCP tool names implemented in src/tools/
 const IMPLEMENTED_TOOLS = [
+  "set_api_token",
   "get_user_info",
   "upload_app",
   "create_distribution",
@@ -36,6 +37,7 @@ describe("skills/onboarding/SKILL.md", () => {
 
   it("references only implemented MCP tools", () => {
     const toolRefs = [
+      "set_api_token",
       "get_user_info",
       "upload_app",
       "create_distribution",

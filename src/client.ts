@@ -26,10 +26,18 @@ export class DeployGateApiError extends Error {
 }
 
 export class DeployGateClient {
-  private token: string;
+  private token: string | undefined;
 
-  constructor(token: string) {
+  constructor(token?: string) {
     this.token = token;
+  }
+
+  setToken(token: string): void {
+    this.token = token;
+  }
+
+  hasToken(): boolean {
+    return this.token !== undefined && this.token !== "";
   }
 
   private async request<T = unknown>(
@@ -40,6 +48,11 @@ export class DeployGateClient {
       formData?: FormData;
     },
   ): Promise<T> {
+    if (!this.token) {
+      throw new Error(
+        "API token is not set. Use the set_api_token tool to set your token, or set the DEPLOYGATE_API_TOKEN environment variable.",
+      );
+    }
     const url = `${BASE_URL}${path}`;
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.token}`,

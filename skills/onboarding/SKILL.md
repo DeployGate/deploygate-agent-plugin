@@ -33,10 +33,11 @@ Before starting, determine:
 If the user doesn't have a DeployGate account:
 
 1. Direct them to sign up: https://deploygate.com/app/register/signup
-2. After signup, get the API token: https://deploygate.com/settings
-3. Verify the token works by using the `get_user_info` tool
+2. After signup, get the API token from the account settings page. The exact URL is https://deploygate.com/settings — do NOT modify or append anything to this URL (e.g. do not use `/settings/credentials` or `/settings/api`; the token is shown directly on the `/settings` page)
+3. Use the `set_api_token` tool to set the token. This validates the token and returns user information (workspace name, projects).
+4. If the token is invalid, `set_api_token` returns an error. Ask the user to double-check their token at https://deploygate.com/settings
 
-If the token is invalid, the API returns `{"error": true, "error_type": "unauthorized"}`. Ask the user to double-check their token.
+After the token is set, tell the user: "For future sessions, you can set the `DEPLOYGATE_API_TOKEN` environment variable in your MCP server configuration so the token is loaded automatically."
 
 ### Step 2: Build and Upload
 
@@ -54,15 +55,19 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`
 
 **iOS:**
 
+An IPA file is required for uploading to DeployGate. Simulator-only builds (.app) cannot be uploaded on their own.
+
 ```bash
 fastlane gym --scheme "MyApp" --export_method "development"
 ```
 
 Or: Xcode → Product → Archive → Distribute App → Development → Export
 
+> **Instant Device support (optional):** To enable Instant Device (browser-based app preview), you can additionally upload a simulator build (.app directory zipped) using the `ios_simulator_zip` parameter alongside the IPA. The IPA (`file` parameter) is always required — a simulator zip alone is not sufficient.
+
 Then upload using the `upload_app` tool:
 - `owner_name`: from `get_user_info`
-- `file_path`: path to the built binary
+- `file_path`: path to the built IPA or APK/AAB
 - `message`: include Git info — e.g. `"feature/login (abc1234)"` or `"PR #42: Login redesign (abc1234)"`
 
 The `message` field greatly improves build searchability. Auto-detect Git branch and commit hash if available:
@@ -80,18 +85,20 @@ Use the `create_distribution` tool:
 - `app_id`: package name / bundle identifier (from upload response)
 - `title`: e.g. `"Development"`, `"QA Build"`, `"Beta"`
 
-The response includes `access_key`. The distribution URL is:
+The response includes `access_key`. The distribution page URL is:
 ```
 https://deploygate.com/distributions/{access_key}
 ```
 
-Share this URL with testers. They can:
+Share this distribution page URL with testers. They can:
 - **Mobile**: Install the app directly
 - **PC**: Use Instant Device to preview the app in a browser (no device needed)
 
 ### Step 4: Notification Setup
 
-**Do not skip this step.** Notifications enable:
+**Do not skip this step. Complete this before moving to Step 5.**
+
+Notifications enable:
 - Automatic alerts when new builds are uploaded
 - Notifications when testers install the app
 - Visibility into team activity
@@ -102,7 +109,11 @@ Tell the user: "Open this URL in your browser to connect Slack, Microsoft Teams,
 
 After setup, verify by uploading a test build — a notification should arrive in the connected channel.
 
+**Once notification setup is confirmed, proceed to Step 5 (if iOS) or the Phase 1 Completion Check (if Android).**
+
 ### Step 5: iOS Device Setup (if applicable)
+
+> **Prerequisite:** Complete Step 4 (Notification Setup) before starting this step.
 
 Skip this step for Android or if Instant Device preview is sufficient.
 
@@ -116,7 +127,7 @@ Guide testers through:
    - Not needed for In-House (Enterprise) distribution
 
 2. **Configuration Profile**:
-   - Open the distribution link **in Safari** (other browsers won't work)
+   - Open the distribution page link **in Safari** (other browsers won't work)
    - Allow the profile download
    - Settings → General → VPN & Device Management → Downloaded Profile → Install
    - Enter the device passcode (not the DeployGate password)
@@ -126,32 +137,46 @@ Guide testers through:
 
 #### 5b: UDID Registration (Ad Hoc only)
 
-If a tester's device UDID is not in the provisioning profile, they'll see an error asking to contact the developer.
+If a tester's device UDID is not in the provisioning profile, they'll see an error message asking to contact the developer.
 
-1. Use the `get_udids` tool with `unprovisioned_only: true` to find unregistered devices
-2. Register UDIDs with Apple Developer Portal:
+**Claude Code can automate the entire UDID registration process.** When the user says "add UDIDs" or "a tester can't install", execute the following steps automatically:
+
+1. **Get unregistered devices** using the `get_udids` tool with `unprovisioned_only: true`
+
+2. **Register UDIDs with Apple Developer Portal** — use device names in `"$device_name ($user_name)"` format:
    ```bash
-   fastlane run register_devices devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E"}'
+   fastlane run register_devices devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E", "iPad Air 5th generation (tester2)" => "00008101-001234567890002E"}'
    ```
-3. Update the provisioning profile:
+
+3. **Update the provisioning profile:**
    ```bash
    fastlane sigh --adhoc --force
    ```
-4. Rebuild and re-upload:
+
+4. **Rebuild the app:**
    ```bash
    fastlane gym --scheme "MyApp" --export_method "ad-hoc"
    ```
-   Then use `upload_app` with the same `distribution_key`
 
-5. Testers can now install the app
+5. **Re-upload to DeployGate** using the `upload_app` tool with the same `distribution_key` to update the existing distribution page
+
+6. **Confirm** that testers can now install the app from the distribution page
 
 ### Phase 1 Completion Check
 
-Confirm with the user:
-- **Instant Device only**: Can they preview the app in the browser?
-- **Android real device**: Can they install and launch the app?
-- **iOS In-House**: Device preparation done + app launches?
-- **iOS Ad Hoc**: UDID registered + rebuilt + reinstalled + app launches?
+Before declaring Phase 1 complete, **ask the user to confirm all of the following**:
+
+1. **App is accessible to testers:**
+   - Ask: "Can your testers launch the app? (via Instant Device in browser, or installed on their device)"
+   - Instant Device: Tester opened the distribution page URL and the app preview loaded
+   - Real device (Android): Tester installed and launched the app
+   - Real device (iOS In-House): Device preparation (5a) done and app launches
+   - Real device (iOS Ad Hoc): UDID registered (5b), app rebuilt and re-uploaded, tester installed and launched
+
+2. **Notification setup is working (Step 4):**
+   - Ask: "Did you receive a notification in Slack/Teams/Chatwork when a build was uploaded?"
+
+Only after the user confirms these, say: "Phase 1 is complete — your app is being distributed to testers via DeployGate."
 
 ## Next Steps
 

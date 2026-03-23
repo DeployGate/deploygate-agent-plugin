@@ -40,6 +40,8 @@ function createToolCapture() {
 // Create a mock client with all methods
 function createMockClient() {
   return {
+    setToken: vi.fn(),
+    hasToken: vi.fn(() => true),
     getOrganizations: vi.fn(),
     uploadApp: vi.fn(),
     createDistribution: vi.fn(),
@@ -65,11 +67,12 @@ function createMockClient() {
 }
 
 describe("auth tools", () => {
-  it("registers get_user_info tool", () => {
+  it("registers get_user_info and set_api_token tools", () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
     registerAuthTools(server, client);
     expect(tools.has("get_user_info")).toBe(true);
+    expect(tools.has("set_api_token")).toBe(true);
   });
 
   it("get_user_info calls getOrganizations and returns results", async () => {
@@ -84,6 +87,47 @@ describe("auth tools", () => {
     const handler = tools.get("get_user_info")!.handler;
     const result = await handler({});
     expect(result.content[0].text).toBe(JSON.stringify(orgs, null, 2));
+  });
+
+  it("set_api_token sets token and validates by calling getOrganizations", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    const orgs = [{ name: "my-workspace" }];
+    (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue(
+      orgs,
+    );
+    registerAuthTools(server, client);
+
+    const handler = tools.get("set_api_token")!.handler;
+    const result = await handler({ api_token: "valid-token" });
+
+    expect(client.setToken).toHaveBeenCalledWith("valid-token");
+    expect(client.getOrganizations).toHaveBeenCalled();
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain("API token set successfully");
+    expect(result.content[0].text).toContain("my-workspace");
+  });
+
+  it("set_api_token clears token and returns error on invalid token", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new DeployGateApiError({
+        error: true,
+        message: "Unauthorized",
+        error_type: "unauthorized",
+      }),
+    );
+    registerAuthTools(server, client);
+
+    const handler = tools.get("set_api_token")!.handler;
+    const result = await handler({ api_token: "bad-token" });
+
+    expect(client.setToken).toHaveBeenCalledWith("bad-token");
+    // Clears the invalid token
+    expect(client.setToken).toHaveBeenCalledWith("");
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("invalid");
   });
 });
 

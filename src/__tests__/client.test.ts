@@ -20,6 +20,48 @@ describe("DeployGateClient", () => {
     mockFetch.mockReset();
   });
 
+  describe("token management", () => {
+    it("hasToken returns false when no token is set", () => {
+      const noTokenClient = new DeployGateClient();
+      expect(noTokenClient.hasToken()).toBe(false);
+    });
+
+    it("hasToken returns true when token is set via constructor", () => {
+      expect(client.hasToken()).toBe(true);
+    });
+
+    it("setToken updates the token used for requests", async () => {
+      client.setToken("new-token");
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: [] }),
+      );
+      await client.getOrganizations();
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers.Authorization).toBe("Bearer new-token");
+    });
+
+    it("setToken overrides the constructor token", async () => {
+      const envClient = new DeployGateClient("env-token");
+      envClient.setToken("session-token");
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: [] }),
+      );
+      await envClient.getOrganizations();
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers.Authorization).toBe("Bearer session-token");
+    });
+
+    it("throws error when making request without token", async () => {
+      const noTokenClient = new DeployGateClient();
+      await expect(noTokenClient.getOrganizations()).rejects.toThrow(
+        "API token is not set",
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("request basics", () => {
     it("sends Authorization header", async () => {
       mockFetch.mockResolvedValueOnce(
