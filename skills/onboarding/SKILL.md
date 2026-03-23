@@ -9,6 +9,31 @@ When the user wants to:
 - Upload and distribute an app
 - Get started with DeployGate
 
+## Progress Display
+
+At the beginning of each step, display a progress indicator showing all steps and the current position. Use ✅ for completed steps, ▶ for the current step, and ○ for upcoming steps. Adapt the step list based on the platform (Android skips Step 5).
+
+**Android example (at Step 3):**
+```
+📋 Phase 1: DeployGate セットアップ [3/4]
+  Step 1 ✅ アカウント作成
+  Step 2 ✅ アプリのアップロード
+  Step 3 ▶  配布ページの作成        ← now
+  Step 4 ○  通知連携の設定
+```
+
+**iOS example (at Step 3):**
+```
+📋 Phase 1: DeployGate セットアップ [3/5]
+  Step 1 ✅ アカウント作成
+  Step 2 ✅ アプリのアップロード
+  Step 3 ▶  配布ページの作成        ← now
+  Step 4 ○  通知連携の設定
+  Step 5 ○  iOS端末セットアップ
+```
+
+Show this progress indicator every time you begin a new step or return to a step after an interruption. When Phase 1 is complete, show all steps as ✅.
+
 ## Initial Assessment
 
 Before starting, determine:
@@ -126,6 +151,14 @@ https://deploygate.com/distributions/{access_key}
 Share this distribution page URL with testers. They can:
 - **Mobile**: Install the app directly
 - **PC**: Use Instant Device to preview the app in a browser (no device needed)
+
+**If the app is an iOS Development or Ad Hoc build (not In-House/Enterprise)**, tell the user the following after sharing the distribution URL:
+
+> テスターが配布ページのリンクをSafariで開くと、DeployGateの構成プロファイルのインストールを求められます。テスターがプロファイルをインストールすると、そのデバイスのUDIDがDeployGateに登録されます。
+>
+> Ad HocやDevelopmentビルドでは、テスターのUDIDがアプリのProvisioning Profileに含まれていないとインストールできません。テスターがプロファイルをインストールした後、`get_udids` ツールで未登録デバイスを確認し、Apple Developerに登録してからアプリを再ビルド・再アップロードする必要があります。
+>
+> まずはテスターにリンクを共有し、構成プロファイルをインストールしてもらってください。その後、Step 5 で UDID の登録と再ビルドを行います。
 
 ### Step 4: Notification Setup
 
