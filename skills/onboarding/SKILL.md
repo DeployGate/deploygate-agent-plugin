@@ -110,10 +110,7 @@ cp -r /tmp/MyApp.xcarchive/Products/Applications/MyApp.app /tmp/MyApp-ipa/Payloa
 cd /tmp/MyApp-ipa && zip -r /tmp/MyApp.ipa Payload
 ```
 
-Or use fastlane:
-```bash
-fastlane gym --scheme "MyApp" --export_method "development"
-```
+> If the project already uses fastlane, `fastlane gym --scheme "MyApp" --export_method "development"` can be used instead. Do not suggest installing fastlane if it's not already set up — xcodebuild is sufficient.
 
 **2. Build the simulator zip for Instant Device:**
 
@@ -210,6 +207,8 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
 
 **Claude Code can automate the entire UDID registration process.** When the user says "add UDIDs" or "a tester can't install", execute the following steps automatically:
 
+> Note: Steps 2-4 use fastlane for Apple Developer Portal interaction. If fastlane is not installed, guide the user to install it (`gem install fastlane` or `brew install fastlane`) — for UDID registration, fastlane is the most practical tool.
+
 1. **Get unregistered devices** using the `get_udids` tool with `unprovisioned_only: true`
 
 2. **Register UDIDs with Apple Developer Portal** — use device names in `"$device_name ($user_name)"` format:
@@ -224,8 +223,9 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
 
 4. **Rebuild the app:**
    ```bash
-   fastlane gym --scheme "MyApp" --export_method "ad-hoc"
+   xcodebuild -scheme "MyApp" -sdk iphoneos -configuration Debug -archivePath /tmp/MyApp.xcarchive archive
    ```
+   Then create the IPA (same as Step 2 of the upload flow).
 
 5. **Re-upload to DeployGate** using the `upload_app` tool with the same `distribution_key` to update the existing distribution page
 
