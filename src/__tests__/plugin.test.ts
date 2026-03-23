@@ -119,28 +119,29 @@ describe(".mcp.json", () => {
   });
 });
 
-describe("commands/", () => {
-  it("deploy.md exists", () => {
-    expect(existsSync(resolve(ROOT, "commands/deploy.md"))).toBe(true);
+describe("skills as slash commands", () => {
+  it("skills/setup/SKILL.md exists", () => {
+    expect(existsSync(resolve(ROOT, "skills/setup/SKILL.md"))).toBe(true);
   });
 
-  it("setup.md exists", () => {
-    expect(existsSync(resolve(ROOT, "commands/setup.md"))).toBe(true);
+  it("skills/deploy/SKILL.md exists", () => {
+    expect(existsSync(resolve(ROOT, "skills/deploy/SKILL.md"))).toBe(true);
   });
 
-  it("deploy.md contains correct command name", () => {
+  it("setup skill contains progress display instructions", () => {
     const content = readFileSync(
-      resolve(ROOT, "commands/deploy.md"),
+      resolve(ROOT, "skills/setup/SKILL.md"),
       "utf-8",
     );
-    expect(content).toContain("/deploy");
+    expect(content).toContain("Progress Display");
+    expect(content).toContain("Phase 1");
   });
 
-  it("setup.md contains correct command name", () => {
+  it("deploy skill contains upload instructions", () => {
     const content = readFileSync(
-      resolve(ROOT, "commands/setup.md"),
+      resolve(ROOT, "skills/deploy/SKILL.md"),
       "utf-8",
     );
-    expect(content).toContain("/setup");
+    expect(content).toContain("upload_app");
   });
 });

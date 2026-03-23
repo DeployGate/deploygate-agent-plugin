@@ -24,15 +24,6 @@ After installation, run `/setup` (or say "DeployGateのセットアップをし�
 
 If you already have an API token, you can set `DEPLOYGATE_API_TOKEN` as an environment variable in your MCP server configuration for automatic authentication.
 
-## Slash Commands
-
-| Command | Description |
-|---|---|
-| `/setup` | Start the DeployGate onboarding flow |
-| `/deploy` | Build and upload the current project to DeployGate |
-
-Commands are namespaced as `/deploygate:setup` and `/deploygate:deploy` when used as a plugin.
-
 ## MCP Tools
 
 ### Authentication
@@ -102,13 +93,16 @@ Commands are namespaced as `/deploygate:setup` and `/deploygate:deploy` when use
 | `add_shared_team_member` | Add a member to a shared team (`email` or `username`, not both) |
 | `assign_shared_team_to_app` | Assign a shared team to an app (tester-level access) |
 
-## Skills
+## Skills (Slash Commands)
 
-| Skill | Description |
-|---|---|
-| `onboarding` | Full onboarding flow with step-by-step progress display |
-| `ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
-| `sdk-setup` | Android/iOS SDK integration (crash reporting, screen capture) |
+Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
+
+| Skill | Command | Description |
+|---|---|---|
+| `setup` | `/deploygate:setup` | Full onboarding flow with step-by-step progress display |
+| `deploy` | `/deploygate:deploy` | Build and upload the current project to DeployGate |
+| `ci-setup` | `/deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
+| `sdk-setup` | `/deploygate:sdk-setup` | Android/iOS SDK integration (crash reporting, screen capture) |
 
 ## GitHub Actions Templates
 

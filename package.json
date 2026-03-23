@@ -20,7 +20,6 @@
     ".mcp.json",
     ".claude-plugin/",
     "skills/",
-    "commands/",
     "templates/",
     "LICENSE",
     "README.md"

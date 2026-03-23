@@ -28,8 +28,8 @@ const IMPLEMENTED_TOOLS = [
   "assign_shared_team_to_app",
 ];
 
-describe("skills/onboarding/SKILL.md", () => {
-  const content = loadSkill("skills/onboarding/SKILL.md");
+describe("skills/setup/SKILL.md", () => {
+  const content = loadSkill("skills/setup/SKILL.md");
 
   it("exists and is non-empty", () => {
     expect(content.length).toBeGreaterThan(0);
