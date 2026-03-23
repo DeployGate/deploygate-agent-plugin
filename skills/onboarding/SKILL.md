@@ -9,6 +9,21 @@ When the user wants to:
 - Upload and distribute an app
 - Get started with DeployGate
 
+## IMPORTANT: URL Rules
+
+When directing users to get their API token, ALWAYS use this exact URL:
+
+    https://deploygate.com/settings
+
+NEVER generate, guess, or modify this URL. The following URLs are all WRONG and must not be used:
+- ~~https://deploygate.com/settings/credentials~~ — WRONG
+- ~~https://deploygate.com/settings/api~~ — WRONG
+- ~~https://deploygate.com/settings/tokens~~ — WRONG
+- ~~https://deploygate.com/settings/api-token~~ — WRONG
+- ~~https://deploygate.com/account/settings~~ — WRONG
+
+The API token is displayed directly on https://deploygate.com/settings — there is no subpath.
+
 ## Progress Display
 
 At the beginning of each step, display a progress indicator showing all steps and the current position. Use ✅ for completed steps, ▶ for the current step, and ○ for upcoming steps. Adapt the step list based on the platform (Android skips Step 5).

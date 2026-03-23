@@ -50,7 +50,7 @@ export class DeployGateClient {
   ): Promise<T> {
     if (!this.token) {
       throw new Error(
-        "API token is not set. Use the set_api_token tool to set your token, or set the DEPLOYGATE_API_TOKEN environment variable.",
+        "API token is not set. Get your token at https://deploygate.com/settings and use the set_api_token tool, or set the DEPLOYGATE_API_TOKEN environment variable.",
       );
     }
     const url = `${BASE_URL}${path}`;
