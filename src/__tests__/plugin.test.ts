@@ -105,7 +105,7 @@ describe(".mcp.json", () => {
     expect(dg.command).toBe("node");
     const args = dg.args as string[];
     expect(args).toHaveLength(1);
-    expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/dist/index.js");
+    expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/dist/bundle.js");
   });
 
   it("references DEPLOYGATE_API_TOKEN environment variable", () => {
