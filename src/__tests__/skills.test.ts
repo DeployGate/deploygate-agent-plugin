@@ -110,8 +110,8 @@ describe("skills/sdk-setup/SKILL.md", () => {
     expect(content).toMatch(/com\.deploygate:sdk-mock:\d+\.\d+\.\d+/);
   });
 
-  it("contains iOS CocoaPods dependency", () => {
-    expect(content).toContain("DeployGateSDK");
+  it("notes iOS SDK is not recommended", () => {
+    expect(content).toContain("not recommended");
   });
 
   it("contains gradle-deploygate-plugin reference", () => {

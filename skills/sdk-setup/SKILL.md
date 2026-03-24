@@ -1,11 +1,11 @@
 ---
 name: sdk-setup
-description: Add the DeployGate SDK to your Android or iOS app for crash reporting and screen capture
+description: Add the DeployGate SDK to your Android app for crash reporting and screen capture
 ---
 
 # DeployGate SDK Setup
 
-Guide users through adding the DeployGate SDK to their Android or iOS app for crash reporting, remote logging, and screen capture bug reporting.
+Guide users through adding the DeployGate SDK to their app for crash reporting, remote logging, and screen capture bug reporting.
 
 ## When to use
 
@@ -14,10 +14,24 @@ When the user wants to:
 - Enable crash reporting or screen capture
 - Set up `gradle-deploygate-plugin` for Android
 
+## iOS: SDK integration is currently not recommended
+
+The DeployGate SDK for iOS (v1.0.x) has the following limitations:
+- **No Swift Package Manager support** — CocoaPods only
+- **No simulator binary** — cannot build for iOS Simulator, which breaks Instant Device functionality
+- **CocoaPods is being discontinued** (2026)
+- **No module map** — requires manual workarounds for Swift projects
+
+**Do not suggest adding the iOS SDK to new projects.** The iOS SDK is being redesigned. Tell the user:
+
+> DeployGate SDK for iOS は現在改修中のため、新規導入はお待ちください。SDK がなくてもアプリの配布、Instant Device、配布ページの通知機能はすべて利用可能です。SDK が更新されましたら改めてご案内します。
+
+If the user specifically asks about iOS SDK, explain the above limitations.
+
 ## Prerequisites
 
 - App is already uploaded to DeployGate (complete onboarding Phase 1 first)
-- SDK features only work when the app is installed via DeployGate (not from Android Studio / Xcode direct run)
+- SDK features only work when the app is installed via DeployGate (not from Android Studio direct run)
 
 ## SDK Benefits
 
@@ -35,14 +49,9 @@ Check the project structure:
 - Check for existing DeployGate SDK dependency
 - Check for multi-module project (`settings.gradle` / `settings.gradle.kts`)
 
-**iOS:**
-- `Podfile` → CocoaPods
-- `Package.swift` or `.xcodeproj` with SPM → Swift Package Manager
-- Check for existing DeployGateSDK dependency
+**iOS:** → Skip SDK integration (see note above)
 
-## Step 2: Add SDK Dependency
-
-### Android
+## Step 2: Add SDK Dependency (Android only)
 
 **Recommended configuration** — use debug/release separation so release builds contain no SDK code:
 
@@ -91,48 +100,6 @@ public class MyApplication extends Application {
 }
 ```
 
-### iOS — CocoaPods
-
-Add to `Podfile`:
-```ruby
-pod 'DeployGateSDK'
-```
-
-Then run:
-```bash
-pod install
-```
-
-Add initialization in `AppDelegate`:
-
-Swift:
-```swift
-import DeployGateSDK
-
-func application(_ application: UIApplication,
-                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    DeployGateSDK.sharedInstance().launchApplication()
-    return true
-}
-```
-
-Objective-C:
-```objc
-#import <DeployGateSDK/DeployGateSDK.h>
-
-- (BOOL)application:(UIApplication *)application
-    didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    [[DeployGateSDK sharedInstance] launchApplication];
-    return YES;
-}
-```
-
-### iOS — Swift Package Manager
-
-1. In Xcode: File → Add Package Dependencies
-2. Enter the DeployGateSDK package URL
-3. Add the same initialization code as shown above in `AppDelegate`
-
 ## Step 3: gradle-deploygate-plugin (Android, Optional)
 
 This Gradle plugin enables `./gradlew uploadDeployGateDebug` for building and uploading in one command.
@@ -173,7 +140,6 @@ export DEPLOYGATE_API_TOKEN=your-token
 
 1. Build the app to verify compilation succeeds:
    - Android: `./gradlew assembleDebug`
-   - iOS: `xcodebuild build` or via Xcode
 
 2. Upload to DeployGate using the `upload_app` tool
 
@@ -185,14 +151,13 @@ export DEPLOYGATE_API_TOKEN=your-token
    - A "launch" event should appear, confirming the SDK is active
    - The device should show as connected
 
-> IMPORTANT: The SDK only works when the app is distributed through DeployGate. Direct installs from Android Studio or Xcode will not activate SDK features.
+> IMPORTANT: The SDK only works when the app is distributed through DeployGate. Direct installs from Android Studio will not activate SDK features.
 
 ## Troubleshooting
 
 | Issue | Solution |
 |---|---|
-| Build fails after adding SDK | Check the SDK version is compatible with your project's min SDK / deployment target |
+| Build fails after adding SDK | Check the SDK version is compatible with your project's min SDK |
 | No launch event in dashboard | Ensure the app was installed via DeployGate, not directly from IDE |
 | SDK not found (Android) | Verify `mavenCentral()` is in `repositories` block |
-| Pod not found (iOS) | Run `pod repo update` then `pod install` |
 | Multi-process crash (Android) | Add `DeployGate.install(this)` in `Application.onCreate()` |

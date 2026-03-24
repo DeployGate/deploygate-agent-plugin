@@ -273,11 +273,13 @@ Only after the user confirms these, say: "Phase 1 is complete — your app is be
 
 → Suggest using the `ci-setup` skill
 
-### Phase 3: SDK Integration
+### Phase 3: SDK Integration (Android only)
 
 "The DeployGate SDK adds crash reporting and screen capture for bug reporting — testers can report issues with a single screenshot."
 
 → Suggest using the `sdk-setup` skill
+
+> **Note:** iOS SDK は現在改修中のため、新規導入は推奨していません。iOS プロジェクトの場合はこのフェーズをスキップしてください。SDK がなくてもアプリの配布、Instant Device、通知機能はすべて利用可能です。
 
 ### Phase 5: Team Expansion
 
