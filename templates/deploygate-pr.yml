@@ -8,8 +8,8 @@
 #   - GitHub Deployment status for environment tracking
 #
 # Required secrets:
-#   DEPLOYGATE_API_TOKEN  — API token from https://deploygate.com/settings
-#   DEPLOYGATE_OWNER_NAME — Your DeployGate user or organization name
+#   DEPLOYGATE_API_TOKEN  — Group API key from https://deploygate.com/organizations/{PROJECT}/settings/api_key
+#   DEPLOYGATE_OWNER_NAME — Your DeployGate project (organization) name
 #
 # Customize:
 #   - Replace the "Build app" step with your actual build commands
@@ -61,35 +61,66 @@ jobs:
             }
             core.info('No existing distribution key found (first deployment)');
 
+      # For Android, you can use the GitHub Action directly:
+      # - name: Upload to DeployGate
+      #   id: upload
+      #   uses: DeployGate/deploygate-upload-github-action@v1.1.1
+      #   with:
+      #     api_token: ${{ secrets.DEPLOYGATE_API_TOKEN }}
+      #     owner_name: ${{ secrets.DEPLOYGATE_OWNER_NAME }}
+      #     file_path: app/build/outputs/apk/debug/app-debug.apk
+      #     distribution_key: ${{ steps.find-key.outputs.distribution_key }}
+      #     distribution_name: "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
+      #     message: "PR #${{ github.event.pull_request.number }} (${{ github.sha }})"
+      #     release_note: "${{ github.event.pull_request.title }}"
+      #
+      # Then extract access_key:
+      # - name: Extract access key
+      #   id: extract
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const results = JSON.parse('${{ steps.upload.outputs.results }}');
+      #       const accessKey = results.distribution?.access_key
+      #         || '${{ steps.find-key.outputs.distribution_key }}';
+      #       core.setOutput('access_key', accessKey);
+
+      # For iOS (or when uploading ios_simulator_zip), use curl:
       - name: Upload to DeployGate
         id: upload
-        uses: DeployGate/deploygate-upload-github-action@v1
-        with:
-          api_token: ${{ secrets.DEPLOYGATE_API_TOKEN }}
-          owner_name: ${{ secrets.DEPLOYGATE_OWNER_NAME }}
-          # TODO: Update the file path to your built binary
-          file_path: app/build/outputs/apk/debug/app-debug.apk
-          distribution_key: ${{ steps.find-key.outputs.distribution_key }}
-          distribution_name: "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
-          message: "PR #${{ github.event.pull_request.number }} (${{ github.sha }})"
-          release_note: "${{ github.event.pull_request.title }}"
+        run: |
+          ARGS=(-s -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYGATE_API_TOKEN }}" \
+            -F "file=@${{ runner.temp }}/MyApp.ipa" \
+            -F "message=PR #${{ github.event.pull_request.number }} (${{ github.sha }})" \
+            -F "release_note=${{ github.event.pull_request.title }}")
 
-      - name: Extract access key from results
-        id: extract
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const results = JSON.parse('${{ steps.upload.outputs.results }}');
-            const accessKey = results.distribution?.access_key
-              || '${{ steps.find-key.outputs.distribution_key }}';
-            core.setOutput('access_key', accessKey);
-            core.info(`Distribution access key: ${accessKey}`);
+          # Add simulator zip for Instant Device (if built)
+          if [ -f "${{ runner.temp }}/MyApp-simulator.zip" ]; then
+            ARGS+=(-F "ios_simulator_zip=@${{ runner.temp }}/MyApp-simulator.zip")
+          fi
+
+          DIST_KEY="${{ steps.find-key.outputs.distribution_key }}"
+          if [ -n "$DIST_KEY" ]; then
+            ARGS+=(-F "distribution_key=$DIST_KEY")
+          else
+            ARGS+=(-F "distribution_name=PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}")
+          fi
+
+          RESPONSE=$(curl "${ARGS[@]}" \
+            "https://deploygate.com/api/users/${{ secrets.DEPLOYGATE_OWNER_NAME }}/apps")
+
+          ACCESS_KEY=$(echo "$RESPONSE" | jq -r '.results.distribution.access_key // empty')
+          if [ -z "$ACCESS_KEY" ]; then
+            ACCESS_KEY="$DIST_KEY"
+          fi
+          echo "access_key=$ACCESS_KEY" >> $GITHUB_OUTPUT
 
       - name: Create or update PR comment
         uses: actions/github-script@v7
         with:
           script: |
-            const accessKey = '${{ steps.extract.outputs.access_key }}';
+            const accessKey = '${{ steps.upload.outputs.access_key }}';
             const prNumber = context.issue.number;
             const prTitle = context.payload.pull_request.title;
             const distUrl = `https://deploygate.com/distributions/${accessKey}`;
@@ -134,7 +165,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const accessKey = '${{ steps.extract.outputs.access_key }}';
+            const accessKey = '${{ steps.upload.outputs.access_key }}';
             const expectedTitle = `PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}`;
 
             // GET current distribution to check title and get required fields
@@ -178,7 +209,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const accessKey = '${{ steps.extract.outputs.access_key }}';
+            const accessKey = '${{ steps.upload.outputs.access_key }}';
             const distUrl = `https://deploygate.com/distributions/${accessKey}`;
 
             const deployment = await github.rest.repos.createDeployment({

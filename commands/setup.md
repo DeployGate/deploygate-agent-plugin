@@ -88,6 +88,14 @@ After the token is set, tell the user: "For future sessions, you can set the `DE
 
 First, use `get_user_info` to determine the owner name (workspace/organization).
 
+**Instant Device の有効化 (Beta):**
+
+Instant Device（ブラウザ上でのアプリプレビュー）は現在ベータ機能のため、ワークスペースごとに有効化が必要です。アップロード前に以下のURLをブラウザで開いて有効化してください:
+
+    https://deploygate.com/app/enterprises/{ENTERPRISE_NAME}/instant-device
+
+`{ENTERPRISE_NAME}` は `get_user_info` で取得したワークスペース名に置き換えてください。この URL も推測・改変せず、ワークスペース名の部分だけ置き換えること。
+
 **Android:**
 
 ```bash
@@ -198,23 +206,16 @@ After setup, verify by uploading a test build — a notification should arrive i
 
 Skip this step for Android or if Instant Device preview is sufficient.
 
-#### 5a: Device Preparation (iOS)
+#### 5a: Tester Profile Installation (iOS)
 
-Guide testers through:
+テスターに配布ページのリンクを共有し、以下の手順を案内してください:
 
-1. **Developer Mode** (iOS 16+, Ad Hoc builds only):
-   - Settings → Privacy & Security → Developer Mode → Toggle ON
-   - Tap "Restart" on the alert → After restart, tap "Turn On" → Enter passcode
-   - Not needed for In-House (Enterprise) distribution
+1. **Safari** で配布ページのリンクを開く（Safari以外のブラウザでは動作しない）
+2. DeployGate の構成プロファイルのインストールを求められる
+3. 設定 → 一般 → VPNとデバイス管理 → ダウンロード済みプロファイル → インストール
+4. 端末のパスコードを入力（DeployGateのパスワードではない）
 
-2. **Configuration Profile**:
-   - Open the distribution page link **in Safari** (other browsers won't work)
-   - Allow the profile download
-   - Settings → General → VPN & Device Management → Downloaded Profile → Install
-   - Enter the device passcode (not the DeployGate password)
-
-3. **Enterprise App Trust** (In-House builds only):
-   - Settings → General → VPN & Device Management → Enterprise App → Trust the developer
+テスターがプロファイルをインストールすると、Step 4 で設定したチャットに「xxx が『yyy』に参加しました」という通知が届きます。この通知がテスター準備完了の合図です。
 
 #### 5b: UDID Registration (Ad Hoc only)
 
@@ -230,6 +231,8 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
    ```bash
    fastlane run register_devices devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E", "iPad Air 5th generation (tester2)" => "00008101-001234567890002E"}'
    ```
+
+   > **注意:** デバイス登録後、Status が "Processing" になる場合があります。この場合、Apple Developer Portal に "Registration is being processed for these devices. They may become available for development and ad hoc distribution in 24 to 72 hours." と表示されます。Processing 中はプロビジョニングプロファイルに反映されないため、ステータスが有効になるまで待つ必要があります。この状態になった場合はユーザーに伝えてください。
 
 3. **Update the provisioning profile:**
    ```bash

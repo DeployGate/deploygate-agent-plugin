@@ -30,20 +30,91 @@ Also detect the project type:
 
 ## Step 2: Configure Secrets
 
+**CI では個人の API key ではなく、グループの API key を使用することを推奨します。** グループの API key は特定ユーザーに紐づかないため、メンバーの異動や退職時に CI が壊れるリスクがありません。
+
+グループの API key は以下の URL から確認できます:
+
+    https://deploygate.com/organizations/{PROJECT_NAME}/settings/api_key
+
+`{PROJECT_NAME}` は `get_user_info` で取得したプロジェクト名に置き換えてください。
+
 ### GitHub Actions
 
 Guide the user to add repository secrets:
 
 1. Go to the repository → Settings → Secrets and variables → Actions
 2. Add these secrets:
-   - `DEPLOYGATE_API_TOKEN`: API token from https://deploygate.com/settings
-   - `DEPLOYGATE_OWNER_NAME`: DeployGate user or organization name
+   - `DEPLOYGATE_API_TOKEN`: グループの API key（上記URLから取得）
+   - `DEPLOYGATE_OWNER_NAME`: DeployGate project (organization) name
+
+**iOS プロジェクトの場合、コード署名の方法を確認してください。** プロジェクトに `Matchfile` や `Fastfile` 内の `match` 呼び出しがあるかチェックし、方法 A か B を選択します。
+
+**方法 A: fastlane match を使う場合（Matchfile がある、または fastlane 導入済みの場合に推奨）**
+
+fastlane match は証明書とプロビジョニングプロファイルを Git リポジトリや Google Cloud Storage で一元管理します。CI でのコード署名が最も簡潔になります。
+
+必要なシークレット:
+   - `MATCH_PASSWORD`: match の暗号化パスワード
+   - `MATCH_GIT_BASIC_AUTHORIZATION`: Git リポジトリへのアクセス用（base64 エンコードした `username:personal_access_token`）
+   - `KEYCHAIN_PASSWORD`: CI用キーチェーンの一時パスワード（任意の文字列）
+
+```bash
+# base64 エンコード
+echo -n "github-username:ghp_xxxxxxxxxxxx" | base64 | pbcopy
+```
+
+match 未導入の場合のセットアップ:
+```bash
+fastlane match init    # ストレージ（git, google_cloud, s3）を選択
+fastlane match development  # 証明書とプロファイルを作成・保存
+```
+
+CI ワークフローでの使い方:
+```yaml
+- name: Set up code signing with match
+  env:
+    MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+    MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+    KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+  run: |
+    fastlane match development --readonly --keychain_name ci-keychain --keychain_password "$KEYCHAIN_PASSWORD"
+
+- name: Build IPA
+  run: fastlane gym --scheme "MyApp" --export_method "development"
+```
+
+**方法 B: 手動で証明書を管理する場合（fastlane を使わない場合）**
+
+必要なシークレット:
+
+3. コード署名用:
+   - `BUILD_CERTIFICATE_BASE64`: 開発証明書（.p12）を base64 エンコードした値
+   - `P12_PASSWORD`: .p12 ファイルのパスワード
+   - `KEYCHAIN_PASSWORD`: CI用キーチェーンの一時パスワード（任意の文字列）
+
+4. プロビジョニングプロファイルの自動取得（推奨）:
+   - `ASC_KEY_ID`: App Store Connect API Key ID
+   - `ASC_ISSUER_ID`: App Store Connect Issuer ID
+   - `ASC_KEY_BASE64`: App Store Connect API Key .p8 ファイルを base64 エンコードした値
+
+   App Store Connect API key は https://appstoreconnect.apple.com/access/integrations/api で作成。Access は "Developer" を選択。
+
+   > App Store Connect API key を使うと、xcodebuild が `-allowProvisioningUpdates` でプロビジョニングプロファイルを自動取得します。UDID 追加時もプロファイルの手動更新が不要になります。
+
+**base64 エンコードの方法:**
+```bash
+base64 -i certificate.p12 | pbcopy        # .p12
+base64 -i AuthKey_XXXXX.p8 | pbcopy       # .p8
+```
+
+**.p12 ファイルの作成方法:**
+キーチェーンアクセスで証明書の左の三角マーク（▶）をクリックして展開し、証明書と秘密鍵の両方を選択（Shift+クリック）→ 右クリック → 「2項目を書き出す...」→ .p12 形式で保存
 
 ### Bitrise
 
 Add environment variables in Bitrise:
 - App Settings → Env Vars or Secrets
-- `DEPLOYGATE_API_TOKEN` and `DEPLOYGATE_OWNER_NAME`
+- `DEPLOYGATE_API_TOKEN`（グループの API key）and `DEPLOYGATE_OWNER_NAME`
 
 ### Other CI
 
@@ -72,22 +143,38 @@ Customize for the project:
 ```
 
 **iOS build step (GitHub Actions):**
+
+コード署名の方法（Step 2 で選択）に応じて構成が異なります。
+
+**方法 A（fastlane match）の場合:**
 ```yaml
 # runs-on: macos-latest
-- name: Build IPA
+- name: Set up code signing with match
+  env:
+    MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+    MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+    KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
   run: |
-    xcodebuild -workspace MyApp.xcworkspace \
-      -scheme MyApp \
-      -configuration Debug \
-      -archivePath build/MyApp.xcarchive \
-      archive
-    xcodebuild -exportArchive \
-      -archivePath build/MyApp.xcarchive \
-      -exportOptionsPlist ExportOptions.plist \
-      -exportPath build/
+    fastlane match development --readonly --keychain_name ci-keychain --keychain_password "$KEYCHAIN_PASSWORD"
 
-# file_path: build/MyApp.ipa
+- name: Build IPA
+  run: fastlane gym --scheme "MyApp" --export_method "development"
+
+- name: Build simulator zip for Instant Device
+  run: |
+    xcodebuild -scheme MyApp -sdk iphonesimulator -configuration Debug \
+      -derivedDataPath $RUNNER_TEMP/sim-build
+    cd $RUNNER_TEMP/sim-build/Build/Products/Debug-iphonesimulator
+    zip -r $RUNNER_TEMP/MyApp-simulator.zip MyApp.app
 ```
+
+**方法 B（手動証明書 + ASC API key）の場合:**
+テンプレート `templates/deploygate-upload.yml` の iOS セクションを参照。
+
+**共通の重要ポイント:**
+- `runs-on: macos-latest` を使用
+- `ios_simulator_zip` パラメータは GitHub Action（`deploygate-upload-github-action`）では未対応のため、**curl で直接 API を呼ぶ**
+- API の multipart パラメータ名は `ios_simulator_zip`（`ios_simulator_file` ではない）
 
 **Android with gradle-deploygate-plugin (alternative):**
 
