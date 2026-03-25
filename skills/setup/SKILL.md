@@ -175,6 +175,8 @@ Share this distribution page URL with testers. They can:
 - **Mobile**: Install the app directly
 - **PC**: Use Instant Device to preview the app in a browser (no device needed)
 
+**Instant Device の利用にはログインが必要です。** 自分以外のユーザーに Instant Device でアプリを試してもらうには、先にそのユーザーを DeployGate のメンバーとして招待する必要があります。`add_member` ツールでメンバーを追加してから、配布ページの URL を共有してください。
+
 **If the app is an iOS Development or Ad Hoc build (not In-House/Enterprise)**, tell the user the following after sharing the distribution URL:
 
 > テスターが配布ページのリンクをSafariで開くと、DeployGateの構成プロファイルのインストールを求められます。テスターがプロファイルをインストールすると、そのデバイスのUDIDがDeployGateに登録されます。
@@ -232,7 +234,15 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
    fastlane run register_devices devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E", "iPad Air 5th generation (tester2)" => "00008101-001234567890002E"}'
    ```
 
-   > **注意:** デバイス登録後、Status が "Processing" になる場合があります。この場合、Apple Developer Portal に "Registration is being processed for these devices. They may become available for development and ad hoc distribution in 24 to 72 hours." と表示されます。Processing 中はプロビジョニングプロファイルに反映されないため、ステータスが有効になるまで待つ必要があります。この状態になった場合はユーザーに伝えてください。
+   > **注意:** デバイス登録後、Status が "Processing" になりプロビジョニングプロファイルにすぐ反映されない場合があります。これは以下の条件で発生します:
+   >
+   > - **新規の Apple Developer Program メンバーシップ**、または**1ヶ月以上失効した後に更新したメンバーシップ**の場合に発生（既存のアクティブなメンバーシップには影響しません）
+   > - 登録デバイス数 1〜10 台: 登録時に即反映
+   > - 登録デバイス数 11〜100 台: 24〜72 時間以内に反映
+   >
+   > Processing 中はデバイスが登録済みでもプロビジョニングプロファイルに含まれないため、ステータスが有効になるまで待つ必要があります。この状態になった場合はユーザーに伝えてください。
+   >
+   > 参考: https://developer.apple.com/help/account/reference/device-registration-updates/
 
 3. **Update the provisioning profile:**
    ```bash
