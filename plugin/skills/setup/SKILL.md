@@ -121,7 +121,7 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`
 
 **iOS:**
 
-For iOS, build BOTH an IPA and a simulator zip. The IPA is required for device installation. The simulator zip enables Instant Device (browser-based app preview) — always build both.
+For iOS, build BOTH an IPA and a simulator zip. The IPA is **required** — the DeployGate upload API does not accept a simulator zip alone. The simulator zip is an optional addition that enables Instant Device (browser-based app preview). If the IPA build fails (e.g. due to code signing issues), you must resolve the issue before uploading. Do NOT suggest uploading only the simulator zip as a workaround.
 
 **0. Check for fastlane and ask build method (iOS only):**
 
@@ -136,6 +136,27 @@ Check if fastlane is installed (`which fastlane`). Then use `AskUserQuestion` to
     - "xcodebuild を使う" — Xcode のコマンドラインツールで直接ビルドします
 
 fastlane is used for IPA builds in this step and will also be needed later for UDID registration and provisioning profile management (Step 5b). Installing it now saves setup time later.
+
+**Pre-flight: Verify code signing (iOS only):**
+
+Before building the IPA, check the code signing team configuration. Detect the scheme name first, then run:
+
+```bash
+xcodebuild -showBuildSettings -scheme "MyApp" 2>/dev/null | grep 'DEVELOPMENT_TEAM'
+```
+
+- If `DEVELOPMENT_TEAM` is empty, the user needs to set a team in Xcode → Target → Signing & Capabilities.
+- If a team is set, check whether the user has multiple teams available (e.g. both a Personal Team and an organization team):
+
+```bash
+security find-identity -v -p codesigning 2>/dev/null
+```
+
+**Common pitfall:** When a user belongs to an organization AND has a Personal Team (free Apple ID, not enrolled in Apple Developer Program), they may accidentally select the wrong team in Xcode. If a non-enrolled Personal Team is selected, the IPA export will fail with `"Team ... (Personal Team) is not enrolled in the Apple Developer Program."` This also causes `fastlane produce` and `fastlane sigh` to fail because non-enrolled teams cannot create App IDs.
+
+Note: A Personal Team that IS enrolled in the Apple Developer Program (paid individual membership) works fine. This issue only occurs when the Personal Team is a free account.
+
+If multiple teams are available and the selected team appears to be a free Personal Team, guide the user to: Xcode → Target → Signing & Capabilities → Team → select the correct enrolled team.
 
 **1. Build the IPA:**
 
@@ -257,11 +278,19 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
 
 > Note: Steps 2-3 use fastlane for Apple Developer Portal interaction. If fastlane was not installed in Step 2, install it now (`brew install fastlane`).
 
+**Authentication for Apple Developer Portal:** Before running `register_devices` or `sigh`, fastlane needs Apple Developer credentials. Check if an `Appfile` exists in the project with `apple_id` and `team_id`. If not, ask the user for their Apple ID (email) and, if they belong to multiple teams, the team ID or team name. Pass these as parameters:
+
+```bash
+fastlane run register_devices username:"user@example.com" team_id:"XXXXXXXXXX" devices:'...'
+```
+
+If the user has only one team, `team_id` can be omitted. The first run will prompt for 2FA and cache the session locally.
+
 1. **Get unregistered devices** using the `get_udids` tool with `unprovisioned_only: true`
 
 2. **Register UDIDs with Apple Developer Portal** — use device names in `"$device_name ($user_name)"` format:
    ```bash
-   fastlane run register_devices devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E", "iPad Air 5th generation (tester2)" => "00008101-001234567890002E"}'
+   fastlane run register_devices username:"user@example.com" team_id:"XXXXXXXXXX" devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E", "iPad Air 5th generation (tester2)" => "00008101-001234567890002E"}'
    ```
 
    > **Note:** After device registration, the status may show "Processing" and the device may not be immediately reflected in provisioning profiles. This occurs under the following conditions:
@@ -274,9 +303,9 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
    >
    > Reference: https://developer.apple.com/help/account/reference/device-registration-updates/
 
-3. **Update the provisioning profile:**
+3. **Update the provisioning profile** (use the same `username` and `team_id` as above):
    ```bash
-   fastlane sigh --adhoc --force
+   fastlane sigh --adhoc --force --username "user@example.com" --team_id "XXXXXXXXXX"
    ```
 
 4. **Rebuild the app:**
