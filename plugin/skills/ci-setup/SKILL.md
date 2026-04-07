@@ -124,7 +124,7 @@ Add the same environment variables in the CI service's settings.
 
 ### GitHub Actions — Main Branch Upload
 
-Use the template from `templates/deploygate-upload.yml`.
+Use the template from `plugin/templates/deploygate-upload.yml`.
 
 Customize for the project:
 
@@ -169,7 +169,7 @@ Configuration depends on the code signing method chosen in Step 2.
 ```
 
 **Method B (manual certificate + ASC API key):**
-Refer to the iOS section in the template `templates/deploygate-upload.yml`.
+Refer to the iOS section in the template `plugin/templates/deploygate-upload.yml`.
 
 **Common important points:**
 - Use `runs-on: macos-latest`
@@ -188,7 +188,7 @@ If the project uses `gradle-deploygate-plugin`, the build and upload can be comb
 
 ### GitHub Actions — PR Distribution
 
-Use the template from `templates/deploygate-pr.yml`.
+Use the template from `plugin/templates/deploygate-pr.yml`.
 
 This workflow:
 1. **On PR open/push**: Builds the app, uploads to DeployGate, creates/updates a distribution page, posts a PR comment with QR code and install link
