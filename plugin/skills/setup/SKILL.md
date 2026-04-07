@@ -101,13 +101,13 @@ After the token is set, tell the user: "For future sessions, you can set the `DE
 
 First, use `get_user_info` to determine the owner name (workspace/organization).
 
-**Instant Device の有効化 (Beta):**
+**Enabling Instant Device (Beta):**
 
-Instant Device（ブラウザ上でのアプリプレビュー）は現在ベータ機能のため、ワークスペースごとに有効化が必要です。アップロード前に以下のURLをブラウザで開いて有効化してください:
+Instant Device (browser-based app preview) is currently a beta feature and must be enabled per workspace. Before uploading, direct the user to open the following URL in their browser to enable it:
 
     https://deploygate.com/app/enterprises/{ENTERPRISE_NAME}/instant-device
 
-`{ENTERPRISE_NAME}` は `get_user_info` で取得したワークスペース名に置き換えてください。この URL も推測・改変せず、ワークスペース名の部分だけ置き換えること。
+Replace `{ENTERPRISE_NAME}` with the workspace name from `get_user_info`. Do not guess or modify this URL — only replace the workspace name portion.
 
 **Android:**
 
@@ -199,7 +199,7 @@ Share this distribution page URL with testers. They can:
 - **Mobile**: Install the app directly
 - **PC**: Use Instant Device to preview the app in a browser (no device needed)
 
-**Instant Device の利用にはログインが必要です。** 自分以外のユーザーに Instant Device でアプリを試してもらうには、先にそのユーザーを DeployGate のメンバーとして招待する必要があります。`add_member` ツールでメンバーを追加してから、配布ページの URL を共有してください。
+**Instant Device requires login.** To let other users try the app via Instant Device, they must first be invited as DeployGate members. Use the `add_member` tool to add members before sharing the distribution page URL.
 
 **If the app is an iOS Development or Ad Hoc build (not In-House/Enterprise)**, tell the user the following after sharing the distribution URL:
 
@@ -240,14 +240,14 @@ If the user chooses Instant Device only, skip to Phase 1 Completion Check.
 
 #### 5a: Tester Profile Installation (iOS)
 
-テスターに配布ページのリンクを共有し、以下の手順を案内してください:
+Share the distribution page link with testers and guide them through these steps:
 
-1. **Safari** で配布ページのリンクを開く（Safari以外のブラウザでは動作しない）
-2. DeployGate の構成プロファイルのインストールを求められる
-3. 設定 → 一般 → VPNとデバイス管理 → ダウンロード済みプロファイル → インストール
-4. 端末のパスコードを入力（DeployGateのパスワードではない）
+1. Open the distribution page link in **Safari** (other browsers are not supported)
+2. They will be prompted to install the DeployGate configuration profile
+3. Go to Settings → General → VPN & Device Management → Downloaded Profile → Install
+4. Enter the device passcode (not the DeployGate password)
 
-テスターがプロファイルをインストールすると、Step 4 で設定したチャットに「xxx が『yyy』に参加しました」という通知が届きます。この通知がテスター準備完了の合図です。
+When a tester installs the profile, a notification like "xxx joined 'yyy'" will appear in the chat channel configured in Step 4. This notification signals that the tester is ready.
 
 #### 5b: UDID Registration (Ad Hoc only)
 
@@ -264,15 +264,15 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
    fastlane run register_devices devices:'{"iPhone 15 Pro (tester1)" => "00008030-001234567890001E", "iPad Air 5th generation (tester2)" => "00008101-001234567890002E"}'
    ```
 
-   > **注意:** デバイス登録後、Status が "Processing" になりプロビジョニングプロファイルにすぐ反映されない場合があります。これは以下の条件で発生します:
+   > **Note:** After device registration, the status may show "Processing" and the device may not be immediately reflected in provisioning profiles. This occurs under the following conditions:
    >
-   > - **新規の Apple Developer Program メンバーシップ**、または**1ヶ月以上失効した後に更新したメンバーシップ**の場合に発生（既存のアクティブなメンバーシップには影響しません）
-   > - 登録デバイス数 1〜10 台: 登録時に即反映
-   > - 登録デバイス数 11〜100 台: 24〜72 時間以内に反映
+   > - **New Apple Developer Program memberships**, or **memberships renewed after being expired for more than 1 month** (does not affect existing active memberships)
+   > - 1–10 registered devices: Reflected immediately upon registration
+   > - 11–100 registered devices: Reflected within 24–72 hours
    >
-   > Processing 中はデバイスが登録済みでもプロビジョニングプロファイルに含まれないため、ステータスが有効になるまで待つ必要があります。この状態になった場合はユーザーに伝えてください。
+   > While in Processing status, the device will not be included in provisioning profiles even though it is registered. Wait until the status becomes active. Inform the user if this situation occurs.
    >
-   > 参考: https://developer.apple.com/help/account/reference/device-registration-updates/
+   > Reference: https://developer.apple.com/help/account/reference/device-registration-updates/
 
 3. **Update the provisioning profile:**
    ```bash
@@ -321,7 +321,7 @@ If the user reports issues, help troubleshoot using the Troubleshooting section 
 
 → Suggest using the `sdk-setup` skill
 
-> **Note:** iOS SDK は現在改修中のため、新規導入は推奨していません。iOS プロジェクトの場合はこのフェーズをスキップしてください。SDK がなくてもアプリの配布、Instant Device、通知機能はすべて利用可能です。
+> **Note:** The iOS SDK is currently being redesigned, so new integration is not recommended. Skip this phase for iOS projects. App distribution, Instant Device, and notification features are all available without the SDK.
 
 ### Phase 5: Team Expansion
 

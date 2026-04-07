@@ -24,7 +24,7 @@ The DeployGate SDK for iOS (v1.0.x) has the following limitations:
 
 **Do not suggest adding the iOS SDK to new projects.** The iOS SDK is being redesigned. Tell the user:
 
-> DeployGate SDK for iOS は現在改修中のため、新規導入はお待ちください。SDK がなくてもアプリの配布、Instant Device、配布ページの通知機能はすべて利用可能です。SDK が更新されましたら改めてご案内します。
+> The DeployGate SDK for iOS is currently being redesigned. Please wait before adopting it for new projects. App distribution, Instant Device, and distribution page notifications are all available without the SDK. We will announce when the updated SDK is ready.
 
 If the user specifically asks about iOS SDK, explain the above limitations.
 

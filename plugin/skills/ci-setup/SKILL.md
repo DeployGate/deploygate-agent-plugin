@@ -30,13 +30,13 @@ Also detect the project type:
 
 ## Step 2: Configure Secrets
 
-**CI では個人の API key ではなく、グループの API key を使用することを推奨します。** グループの API key は特定ユーザーに紐づかないため、メンバーの異動や退職時に CI が壊れるリスクがありません。
+**For CI, recommend using the organization's API key instead of a personal API key.** Organization API keys are not tied to a specific user, so CI won't break when team members leave or change roles.
 
-グループの API key は以下の URL から確認できます:
+The organization API key can be found at:
 
     https://deploygate.com/organizations/{PROJECT_NAME}/settings/api_key
 
-`{PROJECT_NAME}` は `get_user_info` で取得したプロジェクト名に置き換えてください。
+Replace `{PROJECT_NAME}` with the project name obtained from `get_user_info`.
 
 ### GitHub Actions
 
@@ -44,32 +44,32 @@ Guide the user to add repository secrets:
 
 1. Go to the repository → Settings → Secrets and variables → Actions
 2. Add these secrets:
-   - `DEPLOYGATE_API_TOKEN`: グループの API key（上記URLから取得）
+   - `DEPLOYGATE_API_TOKEN`: Organization API key (from the URL above)
    - `DEPLOYGATE_OWNER_NAME`: DeployGate project (organization) name
 
-**iOS プロジェクトの場合、コード署名の方法を確認してください。** プロジェクトに `Matchfile` や `Fastfile` 内の `match` 呼び出しがあるかチェックし、方法 A か B を選択します。
+**For iOS projects, check the code signing method.** Look for a `Matchfile` or `match` calls in `Fastfile` to determine whether to use Method A or B.
 
-**方法 A: fastlane match を使う場合（Matchfile がある、または fastlane 導入済みの場合に推奨）**
+**Method A: Using fastlane match (recommended if Matchfile exists or fastlane is already set up)**
 
-fastlane match は証明書とプロビジョニングプロファイルを Git リポジトリや Google Cloud Storage で一元管理します。CI でのコード署名が最も簡潔になります。
+fastlane match manages certificates and provisioning profiles centrally via a Git repository or Google Cloud Storage. This is the simplest approach for CI code signing.
 
-必要なシークレット:
-   - `MATCH_PASSWORD`: match の暗号化パスワード
-   - `MATCH_GIT_BASIC_AUTHORIZATION`: Git リポジトリへのアクセス用（base64 エンコードした `username:personal_access_token`）
-   - `KEYCHAIN_PASSWORD`: CI用キーチェーンの一時パスワード（任意の文字列）
+Required secrets:
+   - `MATCH_PASSWORD`: Encryption password for match
+   - `MATCH_GIT_BASIC_AUTHORIZATION`: For Git repo access (base64-encoded `username:personal_access_token`)
+   - `KEYCHAIN_PASSWORD`: Temporary keychain password for CI (any string)
 
 ```bash
-# base64 エンコード
+# base64 encoding
 echo -n "github-username:ghp_xxxxxxxxxxxx" | base64 | pbcopy
 ```
 
-match 未導入の場合のセットアップ:
+If match is not yet set up:
 ```bash
-fastlane match init    # ストレージ（git, google_cloud, s3）を選択
-fastlane match development  # 証明書とプロファイルを作成・保存
+fastlane match init    # Choose storage (git, google_cloud, s3)
+fastlane match development  # Create and store certificates and profiles
 ```
 
-CI ワークフローでの使い方:
+Usage in CI workflow:
 ```yaml
 - name: Set up code signing with match
   env:
@@ -83,38 +83,38 @@ CI ワークフローでの使い方:
   run: fastlane gym --scheme "MyApp" --export_method "development"
 ```
 
-**方法 B: 手動で証明書を管理する場合（fastlane を使わない場合）**
+**Method B: Manual certificate management (when not using fastlane)**
 
-必要なシークレット:
+Required secrets:
 
-3. コード署名用:
-   - `BUILD_CERTIFICATE_BASE64`: 開発証明書（.p12）を base64 エンコードした値
-   - `P12_PASSWORD`: .p12 ファイルのパスワード
-   - `KEYCHAIN_PASSWORD`: CI用キーチェーンの一時パスワード（任意の文字列）
+3. For code signing:
+   - `BUILD_CERTIFICATE_BASE64`: Development certificate (.p12) base64-encoded
+   - `P12_PASSWORD`: Password for the .p12 file
+   - `KEYCHAIN_PASSWORD`: Temporary keychain password for CI (any string)
 
-4. プロビジョニングプロファイルの自動取得（推奨）:
+4. Automatic provisioning profile retrieval (recommended):
    - `ASC_KEY_ID`: App Store Connect API Key ID
    - `ASC_ISSUER_ID`: App Store Connect Issuer ID
-   - `ASC_KEY_BASE64`: App Store Connect API Key .p8 ファイルを base64 エンコードした値
+   - `ASC_KEY_BASE64`: App Store Connect API Key .p8 file base64-encoded
 
-   App Store Connect API key は https://appstoreconnect.apple.com/access/integrations/api で作成。Access は "Developer" を選択。
+   Create the App Store Connect API key at https://appstoreconnect.apple.com/access/integrations/api. Select "Developer" for Access.
 
-   > App Store Connect API key を使うと、xcodebuild が `-allowProvisioningUpdates` でプロビジョニングプロファイルを自動取得します。UDID 追加時もプロファイルの手動更新が不要になります。
+   > Using an App Store Connect API key allows xcodebuild to automatically fetch provisioning profiles with `-allowProvisioningUpdates`. This eliminates the need to manually update profiles when adding new UDIDs.
 
-**base64 エンコードの方法:**
+**How to base64 encode:**
 ```bash
 base64 -i certificate.p12 | pbcopy        # .p12
 base64 -i AuthKey_XXXXX.p8 | pbcopy       # .p8
 ```
 
-**.p12 ファイルの作成方法:**
-キーチェーンアクセスで証明書の左の三角マーク（▶）をクリックして展開し、証明書と秘密鍵の両方を選択（Shift+クリック）→ 右クリック → 「2項目を書き出す...」→ .p12 形式で保存
+**How to create a .p12 file:**
+In Keychain Access, expand the certificate by clicking the triangle (▶), select both the certificate and private key (Shift+click) → right-click → "Export 2 items..." → save as .p12 format
 
 ### Bitrise
 
 Add environment variables in Bitrise:
 - App Settings → Env Vars or Secrets
-- `DEPLOYGATE_API_TOKEN`（グループの API key）and `DEPLOYGATE_OWNER_NAME`
+- `DEPLOYGATE_API_TOKEN` (organization API key) and `DEPLOYGATE_OWNER_NAME`
 
 ### Other CI
 
@@ -144,9 +144,9 @@ Customize for the project:
 
 **iOS build step (GitHub Actions):**
 
-コード署名の方法（Step 2 で選択）に応じて構成が異なります。
+Configuration depends on the code signing method chosen in Step 2.
 
-**方法 A（fastlane match）の場合:**
+**Method A (fastlane match):**
 ```yaml
 # runs-on: macos-latest
 - name: Set up code signing with match
@@ -168,13 +168,13 @@ Customize for the project:
     zip -r $RUNNER_TEMP/MyApp-simulator.zip MyApp.app
 ```
 
-**方法 B（手動証明書 + ASC API key）の場合:**
-テンプレート `templates/deploygate-upload.yml` の iOS セクションを参照。
+**Method B (manual certificate + ASC API key):**
+Refer to the iOS section in the template `templates/deploygate-upload.yml`.
 
-**共通の重要ポイント:**
-- `runs-on: macos-latest` を使用
-- `ios_simulator_zip` パラメータは GitHub Action（`deploygate-upload-github-action`）では未対応のため、**curl で直接 API を呼ぶ**
-- API の multipart パラメータ名は `ios_simulator_zip`（`ios_simulator_file` ではない）
+**Common important points:**
+- Use `runs-on: macos-latest`
+- The `ios_simulator_zip` parameter is not supported by the GitHub Action (`deploygate-upload-github-action`), so **use curl to call the API directly**
+- The multipart parameter name is `ios_simulator_zip` (not `ios_simulator_file`)
 
 **Android with gradle-deploygate-plugin (alternative):**
 
