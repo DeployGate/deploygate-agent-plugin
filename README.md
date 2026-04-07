@@ -102,11 +102,11 @@ Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
 | `setup` | `/deploygate:setup` | Full onboarding flow with step-by-step progress display |
 | `deploy` | `/deploygate:deploy` | Build and upload the current project to DeployGate |
 | `ci-setup` | `/deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
-| `sdk-setup` | `/deploygate:sdk-setup` | Android/iOS SDK integration (crash reporting, screen capture) |
+| `sdk-setup` | `/deploygate:sdk-setup` | Android SDK integration (crash reporting, screen capture). iOS SDK is currently not recommended. |
 
 ## GitHub Actions Templates
 
-Pre-built workflow templates in `templates/`:
+Pre-built workflow templates in `plugin/templates/`:
 
 | Template | Description |
 |---|---|
