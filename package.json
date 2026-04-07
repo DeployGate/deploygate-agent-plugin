@@ -8,7 +8,7 @@
     "deploygate-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && esbuild dist/index.js --bundle --platform=node --format=esm --outfile=dist/bundle.js",
+    "build": "tsc && esbuild dist/index.js --bundle --platform=node --format=esm --outfile=plugin/scripts/bundle.js",
     "prepare": "npm run build",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
@@ -16,12 +16,8 @@
     "test:watch": "vitest"
   },
   "files": [
-    "dist/",
-    ".mcp.json",
+    "plugin/",
     ".claude-plugin/",
-    "skills/",
-    "commands/",
-    "templates/",
     "LICENSE",
     "README.md"
   ],

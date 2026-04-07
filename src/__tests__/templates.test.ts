@@ -15,8 +15,8 @@ function loadRaw(relativePath: string): string {
 }
 
 describe("templates/deploygate-upload.yml", () => {
-  const yaml = loadYaml("templates/deploygate-upload.yml");
-  const raw = loadRaw("templates/deploygate-upload.yml");
+  const yaml = loadYaml("plugin/templates/deploygate-upload.yml");
+  const raw = loadRaw("plugin/templates/deploygate-upload.yml");
 
   it("is valid YAML", () => {
     expect(yaml).toBeDefined();
@@ -43,8 +43,8 @@ describe("templates/deploygate-upload.yml", () => {
 });
 
 describe("templates/deploygate-pr.yml", () => {
-  const yaml = loadYaml("templates/deploygate-pr.yml");
-  const raw = loadRaw("templates/deploygate-pr.yml");
+  const yaml = loadYaml("plugin/templates/deploygate-pr.yml");
+  const raw = loadRaw("plugin/templates/deploygate-pr.yml");
 
   it("is valid YAML", () => {
     expect(yaml).toBeDefined();

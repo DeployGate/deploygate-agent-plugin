@@ -29,7 +29,7 @@ const IMPLEMENTED_TOOLS = [
 ];
 
 describe("skills/setup/SKILL.md", () => {
-  const content = loadSkill("skills/setup/SKILL.md");
+  const content = loadSkill("plugin/skills/setup/SKILL.md");
 
   it("exists and is non-empty", () => {
     expect(content.length).toBeGreaterThan(0);
@@ -71,7 +71,7 @@ describe("skills/setup/SKILL.md", () => {
 });
 
 describe("skills/ci-setup/SKILL.md", () => {
-  const content = loadSkill("skills/ci-setup/SKILL.md");
+  const content = loadSkill("plugin/skills/ci-setup/SKILL.md");
 
   it("exists and is non-empty", () => {
     expect(content.length).toBeGreaterThan(0);
@@ -87,16 +87,16 @@ describe("skills/ci-setup/SKILL.md", () => {
 
   it("referenced template files actually exist", () => {
     expect(
-      existsSync(resolve(ROOT, "templates/deploygate-upload.yml")),
+      existsSync(resolve(ROOT, "plugin/templates/deploygate-upload.yml")),
     ).toBe(true);
     expect(
-      existsSync(resolve(ROOT, "templates/deploygate-pr.yml")),
+      existsSync(resolve(ROOT, "plugin/templates/deploygate-pr.yml")),
     ).toBe(true);
   });
 });
 
 describe("skills/sdk-setup/SKILL.md", () => {
-  const content = loadSkill("skills/sdk-setup/SKILL.md");
+  const content = loadSkill("plugin/skills/sdk-setup/SKILL.md");
 
   it("exists and is non-empty", () => {
     expect(content.length).toBeGreaterThan(0);

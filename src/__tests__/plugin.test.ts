@@ -9,8 +9,8 @@ function loadJson(relativePath: string): Record<string, unknown> {
   return JSON.parse(content) as Record<string, unknown>;
 }
 
-describe(".claude-plugin/plugin.json", () => {
-  const plugin = loadJson(".claude-plugin/plugin.json");
+describe("plugin/.claude-plugin/plugin.json", () => {
+  const plugin = loadJson("plugin/.claude-plugin/plugin.json");
 
   it("is valid JSON with required fields", () => {
     expect(plugin.name).toBe("deploygate");
@@ -33,12 +33,12 @@ describe(".claude-plugin/plugin.json", () => {
 
   it("skills path points to an existing directory", () => {
     const skillsPath = (plugin.skills as string).replace(/^\.\//, "");
-    expect(existsSync(resolve(ROOT, skillsPath))).toBe(true);
+    expect(existsSync(resolve(ROOT, "plugin", skillsPath))).toBe(true);
   });
 
   it("mcpServers path points to an existing file", () => {
     const mcpPath = (plugin.mcpServers as string).replace(/^\.\//, "");
-    expect(existsSync(resolve(ROOT, mcpPath))).toBe(true);
+    expect(existsSync(resolve(ROOT, "plugin", mcpPath))).toBe(true);
   });
 
   it("has homepage and license", () => {
@@ -69,22 +69,22 @@ describe(".claude-plugin/marketplace.json", () => {
     expect(owner.email).toBeDefined();
   });
 
-  it("has plugins array with source '.'", () => {
+  it("has plugins array with source './plugin'", () => {
     const plugins = marketplace.plugins as Array<Record<string, unknown>>;
     expect(Array.isArray(plugins)).toBe(true);
     expect(plugins.length).toBeGreaterThan(0);
-    expect(plugins[0].source).toBe("./");
+    expect(plugins[0].source).toBe("./plugin");
   });
 
   it("plugin version matches plugin.json version", () => {
-    const plugin = loadJson(".claude-plugin/plugin.json");
+    const plugin = loadJson("plugin/.claude-plugin/plugin.json");
     const plugins = marketplace.plugins as Array<Record<string, unknown>>;
     expect(plugins[0].version).toBe(plugin.version);
   });
 });
 
-describe(".mcp.json", () => {
-  const mcp = loadJson(".mcp.json");
+describe("plugin/.mcp.json", () => {
+  const mcp = loadJson("plugin/.mcp.json");
 
   it("is valid JSON", () => {
     expect(mcp).toBeDefined();
@@ -105,7 +105,7 @@ describe(".mcp.json", () => {
     expect(dg.command).toBe("node");
     const args = dg.args as string[];
     expect(args).toHaveLength(1);
-    expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/dist/bundle.js");
+    expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/scripts/bundle.js");
   });
 
   it("references DEPLOYGATE_API_TOKEN environment variable", () => {
@@ -119,18 +119,18 @@ describe(".mcp.json", () => {
   });
 });
 
-describe("commands/ (slash commands)", () => {
+describe("plugin/commands/ (slash commands)", () => {
   it("commands/setup.md exists", () => {
-    expect(existsSync(resolve(ROOT, "commands/setup.md"))).toBe(true);
+    expect(existsSync(resolve(ROOT, "plugin/commands/setup.md"))).toBe(true);
   });
 
   it("commands/deploy.md exists", () => {
-    expect(existsSync(resolve(ROOT, "commands/deploy.md"))).toBe(true);
+    expect(existsSync(resolve(ROOT, "plugin/commands/deploy.md"))).toBe(true);
   });
 
   it("setup command contains full skill content (progress display, phases)", () => {
     const content = readFileSync(
-      resolve(ROOT, "commands/setup.md"),
+      resolve(ROOT, "plugin/commands/setup.md"),
       "utf-8",
     );
     expect(content).toContain("Progress Display");
@@ -140,7 +140,7 @@ describe("commands/ (slash commands)", () => {
 
   it("deploy command contains upload instructions", () => {
     const content = readFileSync(
-      resolve(ROOT, "commands/deploy.md"),
+      resolve(ROOT, "plugin/commands/deploy.md"),
       "utf-8",
     );
     expect(content).toContain("upload_app");

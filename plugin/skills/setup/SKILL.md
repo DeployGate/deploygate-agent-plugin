@@ -54,18 +54,31 @@ At the beginning of each step, display a progress indicator showing all steps an
 
 Show this progress indicator every time you begin a new step or return to a step after an interruption. When Phase 1 is complete, show all steps as ✅.
 
+## User Input Collection
+
+Throughout this onboarding, use the `AskUserQuestion` tool to collect information from the user at key decision points. This provides a structured, interactive experience instead of free-form text. Each section below specifies when to use `AskUserQuestion` and what questions to ask.
+
 ## Initial Assessment
 
-Before starting, determine:
+Before starting, detect the platform automatically, then use `AskUserQuestion` to confirm the user's situation:
 
-1. **Does the user have a DeployGate account?**
-   - If no → Start at Step 1 (Account Creation)
-   - If yes → Ask for their API token and start at Step 2
-
-2. **What platform?**
+1. **Platform auto-detection:**
    - Check for `build.gradle` / `build.gradle.kts` → Android
    - Check for `*.xcodeproj` / `*.xcworkspace` → iOS
    - Both may exist (multi-platform project)
+
+2. **Use `AskUserQuestion` to ask:**
+
+   If only one platform is detected:
+   - Question 1: "DeployGate のアカウントはお持ちですか？" (header: "アカウント")
+     - "はい、持っています" — API トークンを入力してセットアップを続けます
+     - "いいえ、まだです" — アカウント作成から始めます
+
+   If both platforms are detected, add a second question:
+   - Question 2: "どのプラットフォームからセットアップしますか？" (header: "プラットフォーム")
+     - "Android" — Android アプリの配布をセットアップします
+     - "iOS" — iOS アプリの配布をセットアップします
+     - "両方" — Android と iOS の両方をセットアップします
 
 3. **Is there source code available?**
    - If yes → Can help with builds
@@ -110,24 +123,28 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`
 
 For iOS, build BOTH an IPA and a simulator zip. The IPA is required for device installation. The simulator zip enables Instant Device (browser-based app preview) — always build both.
 
-**0. Check for fastlane (iOS only):**
+**0. Check for fastlane and ask build method (iOS only):**
 
-Check if fastlane is installed (`which fastlane`). If not, recommend installing it:
+Check if fastlane is installed (`which fastlane`). Then use `AskUserQuestion` to ask:
 
-```bash
-brew install fastlane
-```
+- Question: "iOS アプリのビルド方法を選択してください" (header: "ビルド方法")
+  - If fastlane is installed:
+    - "fastlane を使う (推奨)" — fastlane gym でビルドします。UDID 登録にも使えるため推奨です
+    - "xcodebuild を使う" — Xcode のコマンドラインツールで直接ビルドします
+  - If fastlane is NOT installed:
+    - "fastlane をインストールして使う (推奨)" — brew install fastlane を実行してからビルドします。UDID 登録にも使えるため推奨です
+    - "xcodebuild を使う" — Xcode のコマンドラインツールで直接ビルドします
 
 fastlane is used for IPA builds in this step and will also be needed later for UDID registration and provisioning profile management (Step 5b). Installing it now saves setup time later.
 
 **1. Build the IPA:**
 
-If fastlane is available:
+If the user chose fastlane:
 ```bash
 fastlane gym --scheme "MyApp" --export_method "development"
 ```
 
-Otherwise, use xcodebuild:
+If the user chose xcodebuild:
 ```bash
 xcodebuild -scheme "MyApp" -sdk iphoneos -configuration Debug -archivePath /tmp/MyApp.xcarchive archive
 mkdir -p /tmp/MyApp-ipa/Payload
@@ -160,11 +177,18 @@ git rev-parse --abbrev-ref HEAD  # branch name
 
 ### Step 3: Create Distribution Page
 
-Use the `create_distribution` tool:
+First, use `AskUserQuestion` to determine the distribution purpose:
+
+- Question: "配布ページの用途を選択してください" (header: "配布用途")
+  - "開発チーム向け (Development)" — 開発メンバーが最新ビルドを確認するための配布ページ
+  - "QA テスト向け (QA Build)" — テスターがテストするための配布ページ
+  - "ベータ版 (Beta)" — 社内・外部ベータテスター向けの配布ページ
+
+Then use the `create_distribution` tool:
 - `owner_name`: same as upload
 - `platform`: `"ios"` or `"android"`
 - `app_id`: package name / bundle identifier (from upload response)
-- `title`: e.g. `"Development"`, `"QA Build"`, `"Beta"`
+- `title`: the title based on the user's choice (e.g. `"Development"`, `"QA Build"`, `"Beta"`, or custom input)
 
 The response includes `access_key`. The distribution page URL is:
 ```
@@ -206,7 +230,13 @@ After setup, verify by uploading a test build — a notification should arrive i
 
 > **Prerequisite:** Complete Step 4 (Notification Setup) before starting this step.
 
-Skip this step for Android or if Instant Device preview is sufficient.
+Skip this step for Android. For iOS, use `AskUserQuestion` to confirm whether device setup is needed:
+
+- Question: "テスターの iOS 実機にアプリをインストールする必要がありますか？" (header: "実機テスト")
+  - "はい、実機にインストールしたい" — UDID 登録と Provisioning Profile の更新を行います
+  - "いいえ、Instant Device（ブラウザプレビュー）で十分" — Step 5 をスキップして Phase 1 完了チェックに進みます
+
+If the user chooses Instant Device only, skip to Phase 1 Completion Check.
 
 #### 5a: Tester Profile Installation (iOS)
 
@@ -261,19 +291,21 @@ If a tester's device UDID is not in the provisioning profile, they'll see an err
 
 ### Phase 1 Completion Check
 
-Before declaring Phase 1 complete, **ask the user to confirm all of the following**:
+Before declaring Phase 1 complete, use `AskUserQuestion` to confirm the setup:
 
-1. **App is accessible to testers:**
-   - Ask: "Can your testers launch the app? (via Instant Device in browser, or installed on their device)"
-   - Instant Device: Tester opened the distribution page URL and the app preview loaded
-   - Real device (Android): Tester installed and launched the app
-   - Real device (iOS In-House): Device preparation (5a) done and app launches
-   - Real device (iOS Ad Hoc): UDID registered (5b), app rebuilt and re-uploaded, tester installed and launched
+- Question 1: "テスターはアプリにアクセスできましたか？" (header: "アプリ確認", multiSelect: false)
+  - "はい、確認できました" — テスターがアプリを起動できている（Instant Device またはインストール）
+  - "まだ確認できていない" — テスターに配布ページのリンクを共有して確認してもらいます
+  - "問題が発生している" — トラブルシューティングを行います
 
-2. **Notification setup is working (Step 4):**
-   - Ask: "Did you receive a notification in Slack/Teams/Chatwork when a build was uploaded?"
+- Question 2: "ビルドアップロード時に通知は届きましたか？（Step 4 で設定したチャンネル）" (header: "通知確認", multiSelect: false)
+  - "はい、届きました" — 通知連携が正常に動作しています
+  - "いいえ、届いていない" — 通知設定を再確認します
+  - "通知設定をスキップした" — 後で設定することもできます
 
-Only after the user confirms these, say: "Phase 1 is complete — your app is being distributed to testers via DeployGate."
+Only after the user confirms both items, say: "Phase 1 is complete — your app is being distributed to testers via DeployGate."
+
+If the user reports issues, help troubleshoot using the Troubleshooting section below before re-asking.
 
 ## Next Steps
 

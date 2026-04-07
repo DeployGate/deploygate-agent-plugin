@@ -2,7 +2,7 @@
   "mcpServers": {
     "deploygate": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/bundle.js"],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/bundle.js"],
       "env": {
         "DEPLOYGATE_API_TOKEN": ""
       }

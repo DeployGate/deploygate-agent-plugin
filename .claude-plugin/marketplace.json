@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "deploygate",
-      "source": "./",
+      "source": "./plugin",
       "description": "Upload apps, manage distribution pages, add team members, and set up CI/CD integration with DeployGate",
       "version": "1.1.5"
     }
