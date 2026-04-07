@@ -119,18 +119,18 @@ describe("plugin/.mcp.json", () => {
   });
 });
 
-describe("plugin/commands/ (slash commands)", () => {
-  it("commands/setup.md exists", () => {
-    expect(existsSync(resolve(ROOT, "plugin/commands/setup.md"))).toBe(true);
+describe("plugin/skills/ (slash commands)", () => {
+  it("skills/setup/SKILL.md exists", () => {
+    expect(existsSync(resolve(ROOT, "plugin/skills/setup/SKILL.md"))).toBe(true);
   });
 
-  it("commands/deploy.md exists", () => {
-    expect(existsSync(resolve(ROOT, "plugin/commands/deploy.md"))).toBe(true);
+  it("skills/deploy/SKILL.md exists", () => {
+    expect(existsSync(resolve(ROOT, "plugin/skills/deploy/SKILL.md"))).toBe(true);
   });
 
-  it("setup command contains full skill content (progress display, phases)", () => {
+  it("setup skill contains full content (progress display, phases)", () => {
     const content = readFileSync(
-      resolve(ROOT, "plugin/commands/setup.md"),
+      resolve(ROOT, "plugin/skills/setup/SKILL.md"),
       "utf-8",
     );
     expect(content).toContain("Progress Display");
@@ -138,9 +138,9 @@ describe("plugin/commands/ (slash commands)", () => {
     expect(content).toContain("set_api_token");
   });
 
-  it("deploy command contains upload instructions", () => {
+  it("deploy skill contains upload instructions", () => {
     const content = readFileSync(
-      resolve(ROOT, "plugin/commands/deploy.md"),
+      resolve(ROOT, "plugin/skills/deploy/SKILL.md"),
       "utf-8",
     );
     expect(content).toContain("upload_app");
