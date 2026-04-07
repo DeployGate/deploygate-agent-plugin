@@ -1,8 +1,11 @@
 {
   "name": "deploygate-marketplace",
+  "metadata": {
+    "description": "DeployGate plugins for mobile app distribution, CI/CD integration, and team management"
+  },
   "owner": {
     "name": "DeployGate",
-    "email": "support@deploygate.com"
+    "email": "help@deploygate.com"
   },
   "plugins": [
     {
