@@ -4,17 +4,16 @@ DeployGate integration for Claude Code — upload mobile apps, manage distributi
 
 ## Installation
 
-Add the marketplace and install the plugin:
+Add the marketplace and install the plugin by running following commands within your Claude Code:
 
 ```
 /plugin marketplace add DeployGate/deploygate-claude-plugin
+/plugin install deploygate@deploygate-marketplace
 ```
-
-Then open `/plugin` and install "deploygate" from the Discover tab.
 
 ## Getting Started
 
-After installation, run `/setup` (or say "DeployGateのセットアップをしたい") to start the guided onboarding flow:
+After installation, run `/deploygate:setup` to start the guided onboarding flow:
 
 1. **Account creation** — sign up and set your API token via `set_api_token`
 2. **App upload** — build and upload your IPA/APK/AAB
@@ -23,6 +22,17 @@ After installation, run `/setup` (or say "DeployGateのセットアップをし�
 5. **iOS device setup** — UDID registration for Ad Hoc builds (if applicable)
 
 If you already have an API token, you can set `DEPLOYGATE_API_TOKEN` as an environment variable in your MCP server configuration for automatic authentication.
+
+## Skills (Slash Commands)
+
+Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
+
+| Skill | Command | Description |
+|---|---|---|
+| `setup` | `/deploygate:setup` | Full onboarding flow with step-by-step progress display |
+| `deploy` | `/deploygate:deploy` | Build and upload the current project to DeployGate |
+| `ci-setup` | `/deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
+| `sdk-setup` | `/deploygate:sdk-setup` | Android SDK integration (crash reporting, screen capture). iOS SDK is currently not recommended. |
 
 ## MCP Tools
 
@@ -92,17 +102,6 @@ If you already have an API token, you can set `DEPLOYGATE_API_TOKEN` as an envir
 | `create_shared_team` | Create a workspace-level shared team for cross-project use |
 | `add_shared_team_member` | Add a member to a shared team (`email` or `username`, not both) |
 | `assign_shared_team_to_app` | Assign a shared team to an app (tester-level access) |
-
-## Skills (Slash Commands)
-
-Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
-
-| Skill | Command | Description |
-|---|---|---|
-| `setup` | `/deploygate:setup` | Full onboarding flow with step-by-step progress display |
-| `deploy` | `/deploygate:deploy` | Build and upload the current project to DeployGate |
-| `ci-setup` | `/deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
-| `sdk-setup` | `/deploygate:sdk-setup` | Android SDK integration (crash reporting, screen capture). iOS SDK is currently not recommended. |
 
 ## GitHub Actions Templates
 
