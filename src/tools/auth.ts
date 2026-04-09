@@ -52,7 +52,7 @@ export function registerAuthTools(
 
   server.tool(
     "get_user_info",
-    "Get current user information. Retrieves organizations associated with the API token to determine workspace name and default project.",
+    "Get current user information. Returns the workspace name and projects associated with the API token.",
     {},
     async () => {
       const results = await client.getOrganizations();

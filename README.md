@@ -50,7 +50,7 @@ Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
 | `upload_app` | Upload an app binary (IPA/APK/AAB) to DeployGate. |
 
 **Parameters:**
-- `owner_name` (required): Owner name (user or organization)
+- `owner_name` (required): Owner name (user or project)
 - `file_path` (required): Absolute path to the app binary
 - `message`: Build description (max 32,766 bytes; auto-truncated if exceeded)
 - `distribution_key`: Distribution page key to update. **Takes priority over `distribution_name`.**

@@ -17,7 +17,7 @@ export function registerUdidTools(
     "get_udids",
     "Get iOS device UDIDs registered for an app. Shows which devices are included in the provisioning profile. Devices with is_provisioned=false need to be added to the provisioning profile for Ad Hoc distribution.",
     {
-      owner_name: z.string().describe("Owner name (user or organization)"),
+      owner_name: z.string().describe("Owner name (user or project)"),
       app_id: z.string().describe("iOS app ID (bundle identifier)"),
       unprovisioned_only: z
         .boolean()

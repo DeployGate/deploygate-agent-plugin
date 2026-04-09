@@ -21177,7 +21177,7 @@ Note: This token is only valid for the current session. To persist it, set the D
       throw e;
     }
   });
-  server2.tool("get_user_info", "Get current user information. Retrieves organizations associated with the API token to determine workspace name and default project.", {}, async () => {
+  server2.tool("get_user_info", "Get current user information. Returns the workspace name and projects associated with the API token.", {}, async () => {
     const results = await client2.getOrganizations();
     return {
       content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
@@ -21188,7 +21188,7 @@ Note: This token is only valid for the current session. To persist it, set the D
 // dist/tools/upload.js
 function registerUploadTools(server2, client2) {
   server2.tool("upload_app", "Upload an app binary (IPA/APK/AAB) to DeployGate. Optionally specify a distribution page to update. If both distribution_key and distribution_name are specified, distribution_key takes priority and distribution_name is ignored. When distribution_name creates a new page, it is created with active=false.", {
-    owner_name: external_exports.string().describe("Owner name (user or organization)"),
+    owner_name: external_exports.string().describe("Owner name (user or project)"),
     file_path: external_exports.string().describe("Absolute path to the app binary (IPA/APK/AAB)"),
     message: external_exports.string().max(32766).optional().describe("Short description of this build (e.g. branch name, commit hash). Max 32,766 bytes; auto-truncated if exceeded (response includes a warning)."),
     distribution_key: external_exports.string().max(255).optional().describe("Distribution page key (access_key) to update. Takes priority over distribution_name."),
@@ -21214,7 +21214,7 @@ function registerUploadTools(server2, client2) {
 // dist/tools/distributions.js
 function registerDistributionTools(server2, client2) {
   server2.tool("create_distribution", "Create a new distribution page for an app. Returns the access_key which is used as the distribution page identifier. URL: https://deploygate.com/distributions/{access_key}", {
-    owner_name: external_exports.string().describe("Owner name (user or organization)"),
+    owner_name: external_exports.string().describe("Owner name (user or project)"),
     platform: external_exports.enum(["ios", "android"]).describe("App platform"),
     app_id: external_exports.string().describe("App ID (package name or bundle identifier)"),
     title: external_exports.string().max(255).describe("Distribution page title (max 255 chars)"),
@@ -21233,7 +21233,7 @@ function registerDistributionTools(server2, client2) {
     };
   });
   server2.tool("list_distributions", "List all distribution pages for an app.", {
-    owner_name: external_exports.string().describe("Owner name (user or organization)"),
+    owner_name: external_exports.string().describe("Owner name (user or project)"),
     platform: external_exports.enum(["ios", "android"]).describe("App platform"),
     app_id: external_exports.string().describe("App ID (package name or bundle identifier)")
   }, async (args) => {
@@ -21282,7 +21282,7 @@ function registerDistributionTools(server2, client2) {
 // dist/tools/udids.js
 function registerUdidTools(server2, client2) {
   server2.tool("get_udids", "Get iOS device UDIDs registered for an app. Shows which devices are included in the provisioning profile. Devices with is_provisioned=false need to be added to the provisioning profile for Ad Hoc distribution.", {
-    owner_name: external_exports.string().describe("Owner name (user or organization)"),
+    owner_name: external_exports.string().describe("Owner name (user or project)"),
     app_id: external_exports.string().describe("iOS app ID (bundle identifier)"),
     unprovisioned_only: external_exports.boolean().optional().describe("If true, only return devices not yet in the provisioning profile (is_provisioned=false)")
   }, async (args) => {
@@ -21301,7 +21301,7 @@ function registerNotificationTools(server2) {
     level: external_exports.enum(["distribution", "app"]).describe("Notification level: 'distribution' for a specific distribution page, 'app' for all app activity"),
     access_key: external_exports.string().optional().describe("Distribution page access_key (required when level is 'distribution')"),
     owner_name: external_exports.string().optional().describe("Owner name (required when level is 'app')"),
-    owner_type: external_exports.enum(["organization", "user"]).optional().describe("Owner type: 'organization' or 'user' (required when level is 'app'). Note: URL paths differ between owner types."),
+    owner_type: external_exports.enum(["organization", "user"]).optional().describe("Owner type: 'organization' (project-owned app) or 'user' (personal app). Required when level is 'app'."),
     platform: external_exports.enum(["ios", "android"]).optional().describe("App platform (required when level is 'app')"),
     app_id: external_exports.string().optional().describe("App ID / package name / bundle identifier (required when level is 'app')")
   }, async (args) => {

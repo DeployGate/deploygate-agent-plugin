@@ -10,7 +10,7 @@ export function registerDistributionTools(
     "create_distribution",
     "Create a new distribution page for an app. Returns the access_key which is used as the distribution page identifier. URL: https://deploygate.com/distributions/{access_key}",
     {
-      owner_name: z.string().describe("Owner name (user or organization)"),
+      owner_name: z.string().describe("Owner name (user or project)"),
       platform: z.enum(["ios", "android"]).describe("App platform"),
       app_id: z
         .string()
@@ -54,7 +54,7 @@ export function registerDistributionTools(
     "list_distributions",
     "List all distribution pages for an app.",
     {
-      owner_name: z.string().describe("Owner name (user or organization)"),
+      owner_name: z.string().describe("Owner name (user or project)"),
       platform: z.enum(["ios", "android"]).describe("App platform"),
       app_id: z
         .string()

@@ -14,6 +14,19 @@ When the user wants to:
 - Upload and distribute an app
 - Get started with DeployGate
 
+## Terminology
+
+When communicating with users, always use these terms:
+
+| Correct term | Old / API term | Description |
+|---|---|---|
+| **ワークスペース** (Workspace) | Enterprise | The top-level organizational unit. Members and shared teams belong here. |
+| **プロジェクト** (Project) | Organization, Group | A unit within a workspace. Apps, teams, and distribution pages belong here. A default project is created with the workspace. |
+| **チーム** (Team) | — | A group within a project with a role (owner/developer/tester). |
+| **共有チーム** (Shared Team) | — | A workspace-level team that can be assigned to apps across multiple projects. |
+
+**Important:** Never use "organization" or "group" when talking to users — always say "project" (プロジェクト). When a user belongs to multiple projects, ask "どのプロジェクトにアップロードしますか？" (not "ワークスペース").
+
 ## IMPORTANT: URL Rules
 
 When directing users to get their API token, ALWAYS use this exact URL:
@@ -92,14 +105,14 @@ If the user doesn't have a DeployGate account:
 
 1. Direct them to sign up: https://deploygate.com/app/register/signup
 2. After signup, get the API token from the account settings page. The exact URL is https://deploygate.com/settings — do NOT modify or append anything to this URL (e.g. do not use `/settings/credentials` or `/settings/api`; the token is shown directly on the `/settings` page)
-3. Use the `set_api_token` tool to set the token. This validates the token and returns user information (workspace name, projects).
+3. Use the `set_api_token` tool to set the token. This validates the token and returns user information (workspace name, projects). If the user belongs to multiple projects, ask which project to use for upload.
 4. If the token is invalid, `set_api_token` returns an error. Ask the user to double-check their token at https://deploygate.com/settings
 
 After the token is set, tell the user: "For future sessions, you can set the `DEPLOYGATE_API_TOKEN` environment variable in your MCP server configuration so the token is loaded automatically."
 
 ### Step 2: Build and Upload
 
-First, use `get_user_info` to determine the owner name (workspace/organization).
+First, use `get_user_info` to determine the owner name (project name). If the user belongs to multiple projects, ask which project to upload to.
 
 **Enabling Instant Device (Beta):**
 
@@ -352,13 +365,13 @@ If the user reports issues, help troubleshoot using the Troubleshooting section 
 
 > **Note:** The iOS SDK is currently being redesigned, so new integration is not recommended. Skip this phase for iOS projects. App distribution, Instant Device, and notification features are all available without the SDK.
 
-### Phase 5: Team Expansion
+### Phase 4: Team Expansion
 
 "The Free plan supports up to 2 members. To add more developers or testers, upgrade to the Flexible plan."
 
 For teams ready to scale:
 - Use `add_member` for individual additions
-- Use `create_shared_team` + `assign_shared_team_to_app` for organization-wide distribution (e.g., dogfooding)
+- Use `create_shared_team` + `assign_shared_team_to_app` for workspace-wide distribution (e.g., dogfooding)
 
 ## Troubleshooting
 

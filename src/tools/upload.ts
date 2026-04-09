@@ -10,7 +10,7 @@ export function registerUploadTools(
     "upload_app",
     "Upload an app binary (IPA/APK/AAB) to DeployGate. Optionally specify a distribution page to update. If both distribution_key and distribution_name are specified, distribution_key takes priority and distribution_name is ignored. When distribution_name creates a new page, it is created with active=false.",
     {
-      owner_name: z.string().describe("Owner name (user or organization)"),
+      owner_name: z.string().describe("Owner name (user or project)"),
       file_path: z
         .string()
         .describe("Absolute path to the app binary (IPA/APK/AAB)"),

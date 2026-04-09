@@ -27,7 +27,7 @@ export function registerNotificationTools(server: McpServer): void {
         .enum(["organization", "user"])
         .optional()
         .describe(
-          "Owner type: 'organization' or 'user' (required when level is 'app'). Note: URL paths differ between owner types.",
+          "Owner type: 'organization' (project-owned app) or 'user' (personal app). Required when level is 'app'.",
         ),
       platform: z
         .enum(["ios", "android"])

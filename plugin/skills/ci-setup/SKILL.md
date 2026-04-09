@@ -30,9 +30,9 @@ Also detect the project type:
 
 ## Step 2: Configure Secrets
 
-**For CI, recommend using the organization's API key instead of a personal API key.** Organization API keys are not tied to a specific user, so CI won't break when team members leave or change roles.
+**For CI, recommend using the project API key instead of a personal API key.** Project API keys are not tied to a specific user, so CI won't break when team members leave or change roles.
 
-The organization API key can be found at:
+The project API key can be found at:
 
     https://deploygate.com/organizations/{PROJECT_NAME}/settings/api_key
 
@@ -44,8 +44,8 @@ Guide the user to add repository secrets:
 
 1. Go to the repository → Settings → Secrets and variables → Actions
 2. Add these secrets:
-   - `DEPLOYGATE_API_TOKEN`: Organization API key (from the URL above)
-   - `DEPLOYGATE_OWNER_NAME`: DeployGate project (organization) name
+   - `DEPLOYGATE_API_TOKEN`: Project API key (from the URL above)
+   - `DEPLOYGATE_OWNER_NAME`: DeployGate project name
 
 **For iOS projects, check the code signing method.** Look for a `Matchfile` or `match` calls in `Fastfile` to determine whether to use Method A or B.
 
@@ -114,7 +114,7 @@ In Keychain Access, expand the certificate by clicking the triangle (▶), selec
 
 Add environment variables in Bitrise:
 - App Settings → Env Vars or Secrets
-- `DEPLOYGATE_API_TOKEN` (organization API key) and `DEPLOYGATE_OWNER_NAME`
+- `DEPLOYGATE_API_TOKEN` (project API key) and `DEPLOYGATE_OWNER_NAME`
 
 ### Other CI
 
@@ -131,8 +131,8 @@ Use the following template as a base for the workflow:
 # Uploads the app to DeployGate on push to the main branch.
 #
 # Required secrets:
-#   DEPLOYGATE_API_TOKEN  — Group API key from https://deploygate.com/organizations/{PROJECT}/settings/api_key
-#   DEPLOYGATE_OWNER_NAME — Your DeployGate project (organization) name
+#   DEPLOYGATE_API_TOKEN  — Project API key from https://deploygate.com/organizations/{PROJECT}/settings/api_key
+#   DEPLOYGATE_OWNER_NAME — Your DeployGate project name
 #
 # For iOS, also required:
 #   BUILD_CERTIFICATE_BASE64     — .p12 certificate (base64 encoded)
@@ -334,8 +334,8 @@ Use the following template as a base for the PR workflow:
 #   - GitHub Deployment status for environment tracking
 #
 # Required secrets:
-#   DEPLOYGATE_API_TOKEN  — Group API key from https://deploygate.com/organizations/{PROJECT}/settings/api_key
-#   DEPLOYGATE_OWNER_NAME — Your DeployGate project (organization) name
+#   DEPLOYGATE_API_TOKEN  — Project API key from https://deploygate.com/organizations/{PROJECT}/settings/api_key
+#   DEPLOYGATE_OWNER_NAME — Your DeployGate project name
 #
 # Customize:
 #   - Replace the "Build app" step with your actual build commands
