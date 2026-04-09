@@ -77,21 +77,14 @@ describe("skills/ci-setup/SKILL.md", () => {
     expect(content.length).toBeGreaterThan(0);
   });
 
-  it("references templates/deploygate-upload.yml", () => {
-    expect(content).toContain("templates/deploygate-upload.yml");
+  it("contains inlined upload workflow template", () => {
+    expect(content).toContain("name: DeployGate Upload");
+    expect(content).toContain("deploygate-upload-github-action");
   });
 
-  it("references templates/deploygate-pr.yml", () => {
-    expect(content).toContain("templates/deploygate-pr.yml");
-  });
-
-  it("referenced template files actually exist", () => {
-    expect(
-      existsSync(resolve(ROOT, "plugin/templates/deploygate-upload.yml")),
-    ).toBe(true);
-    expect(
-      existsSync(resolve(ROOT, "plugin/templates/deploygate-pr.yml")),
-    ).toBe(true);
+  it("contains inlined PR workflow template", () => {
+    expect(content).toContain("name: DeployGate PR");
+    expect(content).toContain("deploygate:access_key=");
   });
 });
 

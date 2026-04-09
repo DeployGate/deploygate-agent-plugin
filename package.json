@@ -1,6 +1,6 @@
 {
   "name": "deploygate-claude-plugin",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "DeployGate integration for Claude Code — upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
   "type": "module",
   "main": "dist/index.js",
