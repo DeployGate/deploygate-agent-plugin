@@ -1,6 +1,7 @@
 ---
 name: sdk-setup
 description: Add the DeployGate SDK to your Android app for crash reporting and screen capture
+allowed-tools: mcp__deploygate__upload_app Read Edit Glob Bash(./gradlew:*)
 ---
 
 # DeployGate SDK Setup

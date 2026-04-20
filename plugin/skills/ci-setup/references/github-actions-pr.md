@@ -1,0 +1,292 @@
+# GitHub Actions — PR Distribution Workflow
+
+Use the following template as a base. Customize the build step and `file_path`.
+
+This workflow:
+1. **On PR open/push**: builds the app, uploads to DeployGate, creates/updates a distribution page, posts a PR comment with QR code and install link
+2. **On PR close**: deletes the distribution page
+
+It handles:
+- First push → creates distribution page named `"PR #N: title"`
+- Subsequent pushes → updates the same page via saved `distribution_key`
+- PR title changes → auto-updates distribution page title
+- PR close/merge → cleans up distribution page
+- GitHub Deployment → shows deploy status and environment URL on the PR
+
+```yaml
+# DeployGate PR Distribution Workflow
+# Creates a distribution page for each PR, updates it on push, and deletes it on close.
+#
+# Features:
+#   - Automatic distribution page per PR with QR code in PR comment
+#   - Distribution page title matches PR title (auto-updated on change)
+#   - Cleanup on PR close/merge
+#   - GitHub Deployment status for environment tracking
+#
+# Required secrets:
+#   DEPLOYGATE_API_TOKEN  — Project API key from https://deploygate.com/organizations/{PROJECT}/settings/api_key
+#   DEPLOYGATE_OWNER_NAME — Your DeployGate project name
+#
+# Customize:
+#   - Replace the "Build app" step with your actual build commands
+#   - Update file_path to point to your built binary
+
+name: DeployGate PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    # For iOS builds, use: runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: Replace with your actual build step
+      - name: Build app
+        run: |
+          echo "Replace this with your build command"
+
+      - name: Find existing distribution key
+        id: find-key
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            for (const comment of comments.data) {
+              const match = comment.body?.match(/<!-- deploygate:access_key=(\S+) -->/);
+              if (match) {
+                core.setOutput('distribution_key', match[1]);
+                core.setOutput('comment_id', comment.id);
+                core.info(`Found existing distribution key: ${match[1]}`);
+                return;
+              }
+            }
+            core.info('No existing distribution key found (first deployment)');
+
+      # For Android, you can use the GitHub Action directly:
+      # - name: Upload to DeployGate
+      #   id: upload
+      #   uses: DeployGate/deploygate-upload-github-action@v1.1.1
+      #   with:
+      #     api_token: ${{ secrets.DEPLOYGATE_API_TOKEN }}
+      #     owner_name: ${{ secrets.DEPLOYGATE_OWNER_NAME }}
+      #     file_path: app/build/outputs/apk/debug/app-debug.apk
+      #     distribution_key: ${{ steps.find-key.outputs.distribution_key }}
+      #     distribution_name: "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
+      #     message: "PR #${{ github.event.pull_request.number }} (${{ github.sha }})"
+      #     release_note: "${{ github.event.pull_request.title }}"
+      #
+      # Then extract access_key:
+      # - name: Extract access key
+      #   id: extract
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const results = JSON.parse('${{ steps.upload.outputs.results }}');
+      #       const accessKey = results.distribution?.access_key
+      #         || '${{ steps.find-key.outputs.distribution_key }}';
+      #       core.setOutput('access_key', accessKey);
+
+      # For iOS (or when uploading ios_simulator_zip), use curl:
+      - name: Upload to DeployGate
+        id: upload
+        run: |
+          ARGS=(-s -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYGATE_API_TOKEN }}" \
+            -F "file=@${{ runner.temp }}/MyApp.ipa" \
+            -F "message=PR #${{ github.event.pull_request.number }} (${{ github.sha }})" \
+            -F "release_note=${{ github.event.pull_request.title }}")
+
+          # Add simulator zip for Instant Device (if built)
+          if [ -f "${{ runner.temp }}/MyApp-simulator.zip" ]; then
+            ARGS+=(-F "ios_simulator_zip=@${{ runner.temp }}/MyApp-simulator.zip")
+          fi
+
+          DIST_KEY="${{ steps.find-key.outputs.distribution_key }}"
+          if [ -n "$DIST_KEY" ]; then
+            ARGS+=(-F "distribution_key=$DIST_KEY")
+          else
+            ARGS+=(-F "distribution_name=PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}")
+          fi
+
+          RESPONSE=$(curl "${ARGS[@]}" \
+            "https://deploygate.com/api/users/${{ secrets.DEPLOYGATE_OWNER_NAME }}/apps")
+
+          ACCESS_KEY=$(echo "$RESPONSE" | jq -r '.results.distribution.access_key // empty')
+          if [ -z "$ACCESS_KEY" ]; then
+            ACCESS_KEY="$DIST_KEY"
+          fi
+          echo "access_key=$ACCESS_KEY" >> $GITHUB_OUTPUT
+
+      - name: Create or update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const accessKey = '${{ steps.upload.outputs.access_key }}';
+            const prNumber = context.issue.number;
+            const prTitle = context.payload.pull_request.title;
+            const distUrl = `https://deploygate.com/distributions/${accessKey}`;
+            const qrUrl = `https://deploygate.com/qr?size=178&data=${encodeURIComponent(distUrl)}`;
+
+            const body = [
+              `## 🚀 DeployGate`,
+              ``,
+              `**PR #${prNumber}: ${prTitle}**`,
+              ``,
+              `| 配布ページ | QRコード |`,
+              `|---|---|`,
+              `| [配布ページを開く](${distUrl}) | ![QR](${qrUrl}) |`,
+              ``,
+              `📱 スマートフォンでQRコードを読み取るとアプリをインストールできます`,
+              `🖥️ PCからはリンクをクリックしてInstant Deviceでプレビューできます`,
+              ``,
+              `<!-- deploygate:access_key=${accessKey} -->`,
+            ].join('\n');
+
+            const commentId = '${{ steps.find-key.outputs.comment_id }}';
+            if (commentId) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: parseInt(commentId),
+                body,
+              });
+              core.info('Updated existing PR comment');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              core.info('Created new PR comment');
+            }
+
+      - name: Update distribution title if PR title changed
+        if: steps.find-key.outputs.distribution_key != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const accessKey = '${{ steps.upload.outputs.access_key }}';
+            const expectedTitle = `PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}`;
+
+            // GET current distribution to check title and get required fields
+            const getRes = await fetch(`https://deploygate.com/api/distributions/${accessKey}`, {
+              headers: { 'Authorization': 'Bearer ${{ secrets.DEPLOYGATE_API_TOKEN }}' },
+            });
+            const getData = await getRes.json();
+            if (getData.error) {
+              core.warning(`Failed to get distribution: ${getData.message}`);
+              return;
+            }
+
+            const dist = getData.results;
+            if (dist.title === expectedTitle) {
+              core.info('Distribution title is up to date');
+              return;
+            }
+
+            // PUT update with required fields
+            const params = new URLSearchParams({
+              title: expectedTitle,
+              active: String(dist.active ?? true),
+              release_scope: dist.release_scope ?? 'unlisted',
+            });
+            const putRes = await fetch(`https://deploygate.com/api/distributions/${accessKey}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': 'Bearer ${{ secrets.DEPLOYGATE_API_TOKEN }}',
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: params.toString(),
+            });
+            const putData = await putRes.json();
+            if (putData.error) {
+              core.warning(`Failed to update distribution title: ${putData.message}`);
+            } else {
+              core.info(`Updated distribution title to: ${expectedTitle}`);
+            }
+
+      - name: Create GitHub Deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const accessKey = '${{ steps.upload.outputs.access_key }}';
+            const distUrl = `https://deploygate.com/distributions/${accessKey}`;
+
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.payload.pull_request.head.sha,
+              environment: 'deploygate',
+              auto_merge: false,
+              required_contexts: [],
+              description: `DeployGate distribution for PR #${{ github.event.pull_request.number }}`,
+            });
+
+            if (deployment.data.id) {
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.data.id,
+                state: 'success',
+                environment_url: distUrl,
+                description: 'App uploaded to DeployGate',
+              });
+              core.info(`Created deployment with environment URL: ${distUrl}`);
+            }
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find distribution key from PR comments
+        id: find-key
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            for (const comment of comments.data) {
+              const match = comment.body?.match(/<!-- deploygate:access_key=(\S+) -->/);
+              if (match) {
+                core.setOutput('access_key', match[1]);
+                core.info(`Found distribution key: ${match[1]}`);
+                return;
+              }
+            }
+            core.warning('No distribution key found in PR comments');
+
+      - name: Delete distribution page
+        if: steps.find-key.outputs.access_key != ''
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X DELETE \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYGATE_API_TOKEN }}" \
+            "https://deploygate.com/api/distributions/${{ steps.find-key.outputs.access_key }}")
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | head -1)
+          echo "HTTP $http_code: $body"
+          if [ "$http_code" -ge 400 ]; then
+            echo "::warning::Failed to delete distribution page (HTTP $http_code)"
+          else
+            echo "Distribution page deleted successfully"
+          fi
+```

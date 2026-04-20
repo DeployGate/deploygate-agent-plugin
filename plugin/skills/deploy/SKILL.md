@@ -1,11 +1,23 @@
 ---
 name: deploy
 description: Build the current project and upload the app binary to DeployGate
+allowed-tools: mcp__deploygate__get_user_info mcp__deploygate__upload_app Bash(./gradlew:*) Bash(fastlane:*) Bash(xcodebuild:*) Bash(git rev-parse:*) Bash(which:*) Read Glob
 ---
 
 # Build and upload app to DeployGate
 
-Build the current project and upload the binary to DeployGate.
+Build the current project and upload the binary to DeployGate. This is the **fast-path** skill — a quick build + upload for a project that is already set up. For first-time setup, iOS code signing issues, UDID registration, distribution page creation, or notification configuration, escalate to the `setup` skill instead.
+
+## When to escalate to the `setup` skill
+
+Stop this skill and suggest the user invoke `setup` if any of these apply:
+- The user has never uploaded to DeployGate before (no API token configured)
+- iOS build fails with a code signing / provisioning profile error
+- A tester reports they can't install the app (UDID registration needed)
+- The user needs to create or configure a distribution page
+- The user wants to configure notifications
+
+The `setup` skill owns the full onboarding flow and its detailed references cover these paths.
 
 ## Steps
 

@@ -1,11 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
 function loadSkill(relativePath: string): string {
   return readFileSync(resolve(ROOT, relativePath), "utf-8");
+}
+
+// Concatenate SKILL.md with every markdown file inside the skill directory
+// (references/, etc.). Tests validate invariants across the whole skill
+// corpus, so references can be split out without breaking these checks.
+function loadSkillCorpus(skillDir: string): string {
+  const absDir = resolve(ROOT, skillDir);
+  const parts: string[] = [];
+
+  function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      const st = statSync(full);
+      if (st.isDirectory()) {
+        walk(full);
+      } else if (entry.endsWith(".md")) {
+        parts.push(readFileSync(full, "utf-8"));
+      }
+    }
+  }
+
+  walk(absDir);
+  return parts.join("\n");
 }
 
 // All MCP tool names implemented in src/tools/
@@ -28,14 +51,15 @@ const IMPLEMENTED_TOOLS = [
   "assign_shared_team_to_app",
 ];
 
-describe("skills/setup/SKILL.md", () => {
-  const content = loadSkill("plugin/skills/setup/SKILL.md");
+describe("skills/setup", () => {
+  const main = loadSkill("plugin/skills/setup/SKILL.md");
+  const corpus = loadSkillCorpus("plugin/skills/setup");
 
-  it("exists and is non-empty", () => {
-    expect(content.length).toBeGreaterThan(0);
+  it("SKILL.md exists and is non-empty", () => {
+    expect(main.length).toBeGreaterThan(0);
   });
 
-  it("references only implemented MCP tools", () => {
+  it("references only implemented MCP tools (across SKILL.md + references)", () => {
     const toolRefs = [
       "set_api_token",
       "get_user_info",
@@ -48,43 +72,125 @@ describe("skills/setup/SKILL.md", () => {
       "assign_shared_team_to_app",
     ];
     for (const tool of toolRefs) {
-      expect(content).toContain(tool);
+      expect(corpus).toContain(tool);
       expect(IMPLEMENTED_TOOLS).toContain(tool);
     }
   });
 
-  it("contains correct signup URL", () => {
-    expect(content).toContain(
-      "https://deploygate.com/app/register/signup",
-    );
+  it("SKILL.md contains correct signup URL", () => {
+    expect(main).toContain("https://deploygate.com/app/register/signup");
   });
 
-  it("contains correct API key settings URL", () => {
-    expect(content).toContain("https://deploygate.com/settings");
+  it("SKILL.md contains correct API key settings URL", () => {
+    expect(main).toContain("https://deploygate.com/settings");
   });
 
-  it("contains distribution URL pattern", () => {
-    expect(content).toContain(
-      "https://deploygate.com/distributions/",
-    );
+  it("SKILL.md contains distribution URL pattern", () => {
+    expect(main).toContain("https://deploygate.com/distributions/");
+  });
+
+  it("references directory provides progressive disclosure", () => {
+    const referenced = [
+      "references/terminology.md",
+      "references/ios-build.md",
+      "references/ios-udid.md",
+      "references/next-steps.md",
+      "references/troubleshooting.md",
+    ];
+    for (const ref of referenced) {
+      expect(main).toContain(ref);
+      // File must actually exist
+      expect(() => loadSkill(`plugin/skills/setup/${ref}`)).not.toThrow();
+    }
   });
 });
 
-describe("skills/ci-setup/SKILL.md", () => {
-  const content = loadSkill("plugin/skills/ci-setup/SKILL.md");
+describe("skills/ci-setup", () => {
+  const main = loadSkill("plugin/skills/ci-setup/SKILL.md");
+  const corpus = loadSkillCorpus("plugin/skills/ci-setup");
 
-  it("exists and is non-empty", () => {
-    expect(content.length).toBeGreaterThan(0);
+  it("SKILL.md exists and is non-empty", () => {
+    expect(main.length).toBeGreaterThan(0);
   });
 
-  it("contains inlined upload workflow template", () => {
-    expect(content).toContain("name: DeployGate Upload");
-    expect(content).toContain("deploygate-upload-github-action");
+  it("contains inlined upload workflow template (in corpus)", () => {
+    expect(corpus).toContain("name: DeployGate Upload");
+    expect(corpus).toContain("deploygate-upload-github-action");
   });
 
-  it("contains inlined PR workflow template", () => {
-    expect(content).toContain("name: DeployGate PR");
-    expect(content).toContain("deploygate:access_key=");
+  it("contains inlined PR workflow template (in corpus)", () => {
+    expect(corpus).toContain("name: DeployGate PR");
+    expect(corpus).toContain("deploygate:access_key=");
+  });
+
+  it("references directory provides progressive disclosure", () => {
+    const referenced = [
+      "references/github-actions-upload.md",
+      "references/github-actions-pr.md",
+      "references/ios-code-signing.md",
+      "references/bitrise.md",
+      "references/external-ci.md",
+      "references/troubleshooting.md",
+    ];
+    for (const ref of referenced) {
+      expect(main).toContain(ref);
+      expect(() => loadSkill(`plugin/skills/ci-setup/${ref}`)).not.toThrow();
+    }
+  });
+});
+
+describe("skills allowed-tools frontmatter", () => {
+  const skills = ["setup", "deploy", "ci-setup", "sdk-setup"];
+
+  for (const skill of skills) {
+    it(`${skill}/SKILL.md declares allowed-tools`, () => {
+      const content = loadSkill(`plugin/skills/${skill}/SKILL.md`);
+      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      expect(frontmatterMatch).not.toBeNull();
+      const frontmatter = frontmatterMatch![1];
+      expect(frontmatter).toMatch(/^allowed-tools:\s*\S/m);
+    });
+  }
+
+  it("setup skill pre-approves MCP deploygate tools (wildcard)", () => {
+    const content = loadSkill("plugin/skills/setup/SKILL.md");
+    expect(content).toMatch(/allowed-tools:.*mcp__deploygate__\*/);
+  });
+
+  it("deploy skill pre-approves upload_app and get_user_info", () => {
+    const content = loadSkill("plugin/skills/deploy/SKILL.md");
+    expect(content).toContain("mcp__deploygate__upload_app");
+    expect(content).toContain("mcp__deploygate__get_user_info");
+  });
+
+  it("ci-setup skill pre-approves file-editing tools", () => {
+    const content = loadSkill("plugin/skills/ci-setup/SKILL.md");
+    expect(content).toMatch(/allowed-tools:.*\bWrite\b/);
+    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+  });
+
+  it("sdk-setup skill pre-approves Edit for build.gradle", () => {
+    const content = loadSkill("plugin/skills/sdk-setup/SKILL.md");
+    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+  });
+});
+
+describe("skills/deploy delegates to setup skill for complex cases", () => {
+  const content = loadSkill("plugin/skills/deploy/SKILL.md");
+
+  it("identifies itself as the fast-path", () => {
+    expect(content.toLowerCase()).toContain("fast-path");
+  });
+
+  it("tells the model when to escalate to setup", () => {
+    expect(content).toMatch(/escalate.*setup/i);
+    expect(content).toContain("`setup`");
+  });
+
+  it("lists code signing, UDID, and distribution as escalation triggers", () => {
+    expect(content.toLowerCase()).toContain("code signing");
+    expect(content).toContain("UDID");
+    expect(content.toLowerCase()).toContain("distribution page");
   });
 });
 
