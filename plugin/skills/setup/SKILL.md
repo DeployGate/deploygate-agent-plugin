@@ -73,10 +73,11 @@ Use the `AskUserQuestion` tool at key decision points — each section below spe
 
 Before starting, detect the platform automatically, then use `AskUserQuestion` to confirm the user's situation:
 
-1. **Platform auto-detection.** Run `ls` once in the project root (do NOT use `Glob` for iOS — `*.xcodeproj` and `*.xcworkspace` are macOS bundle directories and Glob will return zero matches). Inspect the output:
-   - Contains `build.gradle` or `build.gradle.kts` → Android
-   - Contains any name ending in `.xcodeproj` or `.xcworkspace` → iOS
-   - Both present → multi-platform project
+1. **Platform auto-detection.** Run `ls` in the project root (do NOT use `Glob` for iOS — `*.xcodeproj` and `*.xcworkspace` are macOS bundle directories and Glob will return zero matches). Inspect the output:
+   - Contains `build.gradle` or `build.gradle.kts` → Android candidate
+   - Contains any name ending in `.xcodeproj` or `.xcworkspace` → iOS candidate
+   - If neither is visible at the root, also `ls` any likely platform subdirectories that appear in the root listing (e.g. `app-ios/`, `ios/`, `iosApp/`, `app-android/`, `android/`). KMP / Kotlin Multiplatform and many multi-module repos nest platform projects one level deep — the `.xcodeproj` is often inside `app-ios/`, the Android module inside `app-android/`
+   - Both platforms detected (at root or in subdirs) → multi-platform project
 
 2. **Use `AskUserQuestion` to ask:**
 
@@ -146,7 +147,13 @@ Substitute `{ENTERPRISE_NAME}` per the API Identifiers section (workspace slug).
 ```bash
 ./gradlew assembleDebug
 ```
-Output: `app/build/outputs/apk/debug/app-debug.apk`
+
+Output path depends on module layout:
+- **Single-module (module name `app`)**: `app/build/outputs/apk/debug/app-debug.apk`
+- **Multi-module / KMP (e.g. module `app-android`)**: `<module>/build/outputs/apk/debug/<module>-debug.apk`
+- **With product flavors** (e.g. `dev` / `prod`): adds a flavor segment — `<module>/build/outputs/apk/<flavor>/debug/<module>-<flavor>-debug.apk`
+
+Check `settings.gradle.kts` / `settings.gradle` for the app module name. If the project has multiple Android modules, scope the task: `./gradlew :<app-module>:assembleDebug` (e.g. `./gradlew :app-android:assembleDebug`). After the build, ask the user for the exact APK path before calling `upload_app` rather than guessing.
 
 > IMPORTANT: Do NOT use APKs from Android Studio's Instant Run / Apply Changes — these are incomplete. Always use a full Gradle build.
 
