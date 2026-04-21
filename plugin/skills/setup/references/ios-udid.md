@@ -35,9 +35,13 @@ If the user has only one team, `team_id` can be omitted. The first run will prom
    >
    > Reference: https://developer.apple.com/help/account/reference/device-registration-updates/
 
-3. **Update the provisioning profile** (use the same `username` and `team_id`):
+3. **Update the provisioning profile** (use the same `username` and `team_id`). Pick the flag matching the build type distributed in Step 2:
+   - Ad Hoc build: `--adhoc`
+   - Development build: `--development`
    ```bash
    fastlane sigh --adhoc --force --username "user@example.com" --team_id "XXXXXXXXXX"
+   # or for Development:
+   # fastlane sigh --development --force --username "user@example.com" --team_id "XXXXXXXXXX"
    ```
 
 4. **Rebuild the app:**

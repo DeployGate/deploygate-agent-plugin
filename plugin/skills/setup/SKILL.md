@@ -1,7 +1,7 @@
 ---
 name: setup
 description: Start DeployGate onboarding — set up app distribution from first upload to team-wide deployment
-allowed-tools: mcp__deploygate__* Bash(./gradlew:*) Bash(xcodebuild:*) Bash(fastlane:*) Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(mkdir:*) Bash(cp:*) Bash(zip:*) Bash(cd:*) Read Glob AskUserQuestion
+allowed-tools: mcp__deploygate__* Bash(./gradlew:*) Bash(xcodebuild:*) Bash(fastlane:*) Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(mkdir:*) Bash(cp:*) Bash(zip:*) Bash(cd:*) Bash(ls:*) Read Glob AskUserQuestion
 ---
 
 # DeployGate Onboarding
@@ -63,7 +63,7 @@ At the beginning of each step, display a progress indicator. Use ✅ for complet
   Step 5 ○  iOS端末セットアップ
 ```
 
-Show this every time you begin or return to a step. When Phase 1 completes, show all as ✅.
+Show this every time you begin or return to a step. When Phase 1 completes, keep the `[5/5]` (iOS) or `[4/4]` (Android) header and mark every step ✅ — do NOT replace the numeric ratio with `[完了]` or similar.
 
 ## User Input Collection
 
@@ -73,10 +73,10 @@ Use the `AskUserQuestion` tool at key decision points — each section below spe
 
 Before starting, detect the platform automatically, then use `AskUserQuestion` to confirm the user's situation:
 
-1. **Platform auto-detection:**
-   - `build.gradle` / `build.gradle.kts` → Android
-   - `*.xcodeproj` / `*.xcworkspace` → iOS
-   - Both may exist (multi-platform project)
+1. **Platform auto-detection.** Run `ls` once in the project root (do NOT use `Glob` for iOS — `*.xcodeproj` and `*.xcworkspace` are macOS bundle directories and Glob will return zero matches). Inspect the output:
+   - Contains `build.gradle` or `build.gradle.kts` → Android
+   - Contains any name ending in `.xcodeproj` or `.xcworkspace` → iOS
+   - Both present → multi-platform project
 
 2. **Use `AskUserQuestion` to ask:**
 
@@ -90,28 +90,57 @@ Before starting, detect the platform automatically, then use `AskUserQuestion` t
 
 3. **Is there source code available?** If no, the user must provide a pre-built binary.
 
+## API Identifiers (used throughout Phase 1)
+
+DeployGate has two identifier slugs you will reuse across tool calls. Both come from the `get_user_info` / `set_api_token` response. Read terminology.md first for the user-facing names; this section is just the API-side mapping.
+
+Response shape (simplified):
+
+```json
+[
+  {
+    "name": "example-workspace",        // workspace slug (legacy: "enterprise")
+    "groups": [
+      { "name": "shaker-app", ... }      // project slug (legacy: "organization")
+    ]
+  }
+]
+```
+
+Mapping — use these consistently:
+
+| Skill placeholder | Source field | Used in |
+|---|---|---|
+| `owner_name` | project slug (`groups[i].name`) — or the user's own login name for a personal account | `upload_app`, `create_distribution`, `get_notification_settings_url`, member tools |
+| `{ENTERPRISE_NAME}` | workspace slug (top-level `name`) | Instant Device enable URL only |
+| `app_id` | `package_name` from the `upload_app` response | `create_distribution` |
+
+If the user belongs to multiple projects (more than one entry in `groups`), ask **once** at Step 1 which project to use and reuse that choice for every subsequent tool call — do not re-prompt at Step 2.
+
 ## Phase 1: Distribution Setup
 
 ### Step 1: Account Creation
 
-If the user doesn't have a DeployGate account:
+**If the user already has an account:** ask them to paste their API token directly in the chat (free-form — do NOT use `AskUserQuestion` for this, since it requires a long string). Remind them the token is at https://deploygate.com/settings. Skip to substep 3 below.
+
+**If the user doesn't have a DeployGate account:**
 
 1. Direct them to sign up: https://deploygate.com/app/register/signup
 2. After signup, get the API token from https://deploygate.com/settings — do NOT modify or append anything to this URL
-3. Use the `set_api_token` tool. This validates the token and returns user info (workspace name, projects). If the user belongs to multiple projects, ask which to use for upload
+3. Use the `set_api_token` tool (param name: `api_token`). This validates the token and returns user info (workspace name, projects). If the user belongs to multiple projects, ask which to use for upload
 4. If the token is invalid, `set_api_token` returns an error. Ask the user to double-check at https://deploygate.com/settings
 
 After the token is set: "For future sessions, you can set `DEPLOYGATE_API_TOKEN` in your MCP server configuration so the token is loaded automatically."
 
 ### Step 2: Build and Upload
 
-First, use `get_user_info` to determine the owner name (project name). If the user belongs to multiple projects, ask which to upload to.
+Use the `owner_name` (project slug) chosen at Step 1. If it was not captured, call `get_user_info` now. See the API Identifiers section for the mapping.
 
-**Enable Instant Device (Beta):** Instant Device (browser-based app preview) is currently beta and must be enabled per workspace. Before uploading, direct the user to:
+**Enable Instant Device (Beta):** Instant Device (browser-based app preview) is beta and must be enabled per workspace. Present this URL **as the first thing in Step 2**, before reading `ios-build.md` or asking the build-method question — the user clicks it once and you proceed in parallel without waiting:
 
     https://deploygate.com/app/enterprises/{ENTERPRISE_NAME}/instant-device
 
-Replace `{ENTERPRISE_NAME}` with the workspace name from `get_user_info`. Do not modify the rest of the URL.
+Substitute `{ENTERPRISE_NAME}` per the API Identifiers section (workspace slug). The action is idempotent; do not block on confirmation.
 
 **Android:**
 ```bash
@@ -128,6 +157,8 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`
 - `file_path`: path to the IPA / APK / AAB
 - `ios_simulator_zip`: (iOS only) path to the simulator .zip if built
 - `message`: include Git info — e.g. `"feature/login (abc1234)"` or `"PR #42: Login redesign (abc1234)"`
+
+The response contains `package_name` (bundle identifier on iOS, package name on Android) — you will pass this as `app_id` in Step 3.
 
 Auto-detect Git info if available:
 ```bash
@@ -147,7 +178,7 @@ First, use `AskUserQuestion`:
 Then use `create_distribution`:
 - `owner_name`: same as upload
 - `platform`: `"ios"` or `"android"`
-- `app_id`: package name / bundle identifier (from upload response)
+- `app_id`: the `package_name` field from the upload response
 - `title`: based on the user's choice (e.g. `"Development"`, `"QA Build"`, `"Beta"`)
 
 The response includes `access_key`. The distribution page URL is:
@@ -159,13 +190,13 @@ Share this URL with testers. They can:
 - **Mobile**: install the app directly
 - **PC**: preview via Instant Device in a browser (no device needed)
 
-**Instant Device requires login.** To let users try the app, they must first be invited as DeployGate members. Use `add_member` before sharing.
+**Instant Device requires login.** Testers must be DeployGate members to preview. Member invitation is Phase 4 work — defer entirely. Mention it in one line ("Instant Device でのプレビューには Phase 4 のチーム招待が必要です") and move on; do NOT call `add_member` in Phase 1 regardless of what the user says.
 
 **If the app is an iOS Development or Ad Hoc build (not In-House/Enterprise)**, tell the user:
 
-> テスターが配布ページのリンクをSafariで開くと、DeployGateの構成プロファイルのインストールを求められます。テスターがプロファイルをインストールすると、そのデバイスのUDIDがDeployGateに登録されます。
+> テスターが配布ページのリンクをSafariで開くと、DeployGateの構成プロファイルのインストールを求められます。プロファイルをインストールすると、そのデバイスのUDIDがDeployGateに登録されます。
 >
-> Ad HocやDevelopmentビルドでは、テスターのUDIDがアプリのProvisioning Profileに含まれていないとインストールできません。まずはテスターにリンクを共有し、構成プロファイルをインストールしてもらってください。その後、Step 5 で UDID の登録と再ビルドを行います。
+> Ad Hoc / Development ビルドでは、テスターの UDID が Provisioning Profile に含まれていないと実機インストールできません。まずリンクを共有してプロファイルをインストールしてもらってください。実機インストールが必要な場合は Step 5 で UDID 登録を行います（テスターが Instant Device ブラウザプレビューのみで十分なら Step 5 はスキップ可）。
 
 ### Step 4: Notification Setup
 
@@ -176,7 +207,7 @@ Notifications enable:
 - Notifications when testers install the app
 - Visibility into team activity
 
-Use `get_notification_settings_url` with `level: "distribution"` and the `access_key` from Step 3.
+Use `get_notification_settings_url` with `level: "distribution"` and the `access_key` from Step 3. The tool returns a text message containing the URL — extract the URL verbatim and share it with the user; do not reformat or add query parameters.
 
 Tell the user: "Open this URL in your browser to connect Slack, Microsoft Teams, or Chatwork. The setup takes about 1-2 minutes."
 
@@ -207,9 +238,9 @@ Share the distribution page link with testers and guide them through:
 
 When a tester installs the profile, a notification like "xxx joined 'yyy'" appears in the chat channel configured in Step 4 — this signals the tester is ready.
 
-#### 5b: UDID Registration (Ad Hoc only)
+#### 5b: UDID Registration (Ad Hoc or Development)
 
-If a tester's device UDID is not in the provisioning profile, they see an error asking to contact the developer.
+If a tester's device UDID is not in the provisioning profile, they see an error asking to contact the developer. Both Ad Hoc and Development builds use device-scoped profiles, so UDID registration applies to both. (In-House / Enterprise builds bypass this — all devices are allowed.)
 
 **Claude Code can automate the entire UDID registration process.** Read `references/ios-udid.md` for the full fastlane-based workflow (`get_udids` → `fastlane register_devices` → `fastlane sigh` → rebuild → re-upload with the same `distribution_key`).
 

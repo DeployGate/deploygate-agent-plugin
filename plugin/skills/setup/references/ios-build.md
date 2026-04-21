@@ -18,9 +18,22 @@ Check if fastlane is installed (`which fastlane`). Then use `AskUserQuestion`:
 
 fastlane is used for IPA builds here and later for UDID registration / provisioning profile management (Step 5b). Installing it now saves time later.
 
+## Detect the scheme name
+
+Before building, find the Xcode scheme:
+
+```bash
+# Project-only (no workspace):
+xcodebuild -list -project <name>.xcodeproj 2>/dev/null
+# Or when a workspace exists (CocoaPods / SwiftPM workspace):
+xcodebuild -list -workspace <name>.xcworkspace 2>/dev/null
+```
+
+Use the first name listed under `Schemes:` (typically the main app scheme). Use this name for every `-scheme` argument below.
+
 ## Pre-flight: Verify code signing
 
-Before building the IPA, check the code signing team. Detect the scheme name first, then run:
+Before building the IPA, check the code signing team:
 
 ```bash
 xcodebuild -showBuildSettings -scheme "MyApp" 2>/dev/null | grep 'DEVELOPMENT_TEAM'
