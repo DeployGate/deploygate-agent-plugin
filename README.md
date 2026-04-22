@@ -117,7 +117,7 @@ Pre-built workflow templates in `plugin/templates/`:
 ```bash
 npm install        # Install dependencies
 npm run build      # Compile TypeScript + bundle with esbuild
-npm test           # Run tests (92 tests)
+npm test           # Run tests
 ```
 
 ## License
