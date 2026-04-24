@@ -108,14 +108,12 @@ describe("plugin/.mcp.json", () => {
     expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/scripts/bundle.js");
   });
 
-  it("references DEPLOYGATE_API_TOKEN environment variable", () => {
+  it("does not pass DEPLOYGATE_API_TOKEN through env", () => {
     const servers = mcp.mcpServers as Record<
       string,
       Record<string, unknown>
     >;
-    const env = servers.deploygate.env as Record<string, string>;
-    expect(env).toBeDefined();
-    expect("DEPLOYGATE_API_TOKEN" in env).toBe(true);
+    expect(servers.deploygate.env).toBeUndefined();
   });
 });
 
