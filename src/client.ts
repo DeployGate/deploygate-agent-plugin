@@ -124,6 +124,45 @@ export class DeployGateClient {
     return this.request("GET", "/api/organizations");
   }
 
+  // --- Device auth code flow ---
+
+  async createDeviceCode(
+    clientLabel: string,
+    nonce: string,
+  ): Promise<{
+    code: string;
+    verification_uri_complete: string;
+    expires_in: number;
+    interval: number;
+  }> {
+    const res = await this.requestRaw("POST", "/api/sessions/codes", {
+      authenticated: false,
+      headers: { "X-Client-Nonce": nonce },
+      body: { client_label: clientLabel },
+    });
+    const data = res.data as { error?: boolean; results?: Record<string, unknown> } | null;
+    if (!data || data.error) {
+      throw new DeployGateApiError(
+        (data as unknown as DeployGateErrorDetail) ?? {
+          error: true,
+          message: `Unexpected status ${res.status}`,
+        },
+      );
+    }
+    const r = data.results as {
+      code: string;
+      verification_uri_complete: string;
+      expires_in: number;
+      interval: number;
+    };
+    return {
+      code: r.code,
+      verification_uri_complete: r.verification_uri_complete,
+      expires_in: r.expires_in,
+      interval: r.interval,
+    };
+  }
+
   // --- App upload ---
 
   async uploadApp(

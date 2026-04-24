@@ -206,6 +206,57 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("createDeviceCode", () => {
+    it("POSTs to /api/sessions/codes with X-Client-Nonce and client_label", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          {
+            error: false,
+            results: {
+              code: "ABCD1234",
+              verification_url: "https://deploygate.com/app/sessions/codes",
+              verification_uri_complete: "https://deploygate.com/app/sessions/codes?code=ABCD1234",
+              expires_in: 300,
+              interval: 5,
+            },
+          },
+          200,
+        ),
+      );
+      const noTokenClient = new DeployGateClient();
+      const res = await noTokenClient.createDeviceCode("my-cli", "nonce-xyz");
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/sessions/codes");
+      expect(options.method).toBe("POST");
+      expect(options.headers["X-Client-Nonce"]).toBe("nonce-xyz");
+      expect(options.headers.Authorization).toBeUndefined();
+      expect(options.headers["Content-Type"]).toBe("application/json");
+      expect(options.body).toBe(JSON.stringify({ client_label: "my-cli" }));
+
+      expect(res).toEqual({
+        code: "ABCD1234",
+        verification_uri_complete:
+          "https://deploygate.com/app/sessions/codes?code=ABCD1234",
+        expires_in: 300,
+        interval: 5,
+      });
+    });
+
+    it("throws DeployGateApiError on error response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          { error: true, message: "Invalid X-Client-Nonce format." },
+          400,
+        ),
+      );
+      const noTokenClient = new DeployGateClient();
+      await expect(
+        noTokenClient.createDeviceCode("x", "bad"),
+      ).rejects.toThrow(DeployGateApiError);
+    });
+  });
+
   describe("getOrganizations", () => {
     it("returns results from response", async () => {
       const orgs = [{ name: "my-workspace", projects: [] }];
