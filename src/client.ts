@@ -219,6 +219,21 @@ export class DeployGateClient {
     });
   }
 
+  async revokeCurrentToken(): Promise<void> {
+    const res = await this.requestRaw("DELETE", "/api/sessions/current_token", {
+      authenticated: true,
+    });
+    if (res.status === 204) return;
+    if (res.status < 200 || res.status >= 300) {
+      throw new DeployGateApiError(
+        (res.data as DeployGateErrorDetail) ?? {
+          error: true,
+          message: `Unexpected status ${res.status}`,
+        },
+      );
+    }
+  }
+
   // --- App upload ---
 
   async uploadApp(

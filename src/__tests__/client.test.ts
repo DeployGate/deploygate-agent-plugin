@@ -354,6 +354,42 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("revokeCurrentToken", () => {
+    it("DELETEs /api/sessions/current_token with bearer token", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        json: () => {
+          throw new Error("should not be called");
+        },
+      });
+      await client.revokeCurrentToken();
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/sessions/current_token");
+      expect(options.method).toBe("DELETE");
+      expect(options.headers.Authorization).toBe("Bearer test-token");
+    });
+
+    it("throws DeployGateApiError on 401", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          { error: true, message: "unauthorized", error_type: "unauthorized" },
+          401,
+        ),
+      );
+      await expect(client.revokeCurrentToken()).rejects.toThrow(
+        DeployGateApiError,
+      );
+    });
+
+    it("throws when no token is set", async () => {
+      const noTokenClient = new DeployGateClient();
+      await expect(noTokenClient.revokeCurrentToken()).rejects.toThrow(
+        "API token is not set",
+      );
+    });
+  });
+
   describe("getOrganizations", () => {
     it("returns results from response", async () => {
       const orgs = [{ name: "my-workspace", projects: [] }];
