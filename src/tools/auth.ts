@@ -211,11 +211,35 @@ export function registerAuthTools(
       };
     },
   );
-  server.tool("get_user_info", "placeholder — implemented in Task 9", {}, async () => ({
-    content: [{ type: "text", text: "not yet implemented" }],
-    isError: true,
-  }));
-
-  // The following identifiers will be used in later tasks.
-  void DeployGateApiError;
+  server.tool(
+    "get_user_info",
+    "Get current user information — workspace name and projects associated with the stored token. If the token is invalid, the local token is deleted and the tool instructs the user to run `login_start`.",
+    {},
+    async () => {
+      try {
+        const orgs = await client.getOrganizations();
+        return {
+          content: [{ type: "text", text: JSON.stringify(orgs, null, 2) }],
+        };
+      } catch (e) {
+        if (
+          e instanceof DeployGateApiError &&
+          e.errorType === "unauthorized"
+        ) {
+          await tokenStore.clear();
+          client.setToken("");
+          return {
+            content: [
+              {
+                type: "text",
+                text: "The stored token is invalid. Run `login_start` to log in again.",
+              },
+            ],
+            isError: true,
+          };
+        }
+        throw e;
+      }
+    },
+  );
 }

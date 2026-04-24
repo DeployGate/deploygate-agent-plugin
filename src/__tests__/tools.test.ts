@@ -395,6 +395,60 @@ describe("auth tools", () => {
       expect(result.content[0].text).toContain("server-side revoke");
     });
   });
+
+  describe("get_user_info", () => {
+    it("returns organizations on success", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { name: "ws" },
+      ]);
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      const result = await tools.get("get_user_info")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual([{ name: "ws" }]);
+    });
+
+    it("clears local token and returns an error on unauthorized", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new DeployGateApiError({
+          error: true,
+          message: "Unauthorized",
+          error_type: "unauthorized",
+        }),
+      );
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("get_user_info")!.handler({});
+      expect(result.isError).toBe(true);
+      expect(tokenStore.clear).toHaveBeenCalled();
+      expect(client.setToken).toHaveBeenCalledWith("");
+      expect(result.content[0].text).toContain("login_start");
+    });
+
+    it("propagates non-401 errors", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new DeployGateApiError({
+          error: true,
+          message: "Server error",
+          error_type: "internal_error",
+        }),
+      );
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      await expect(
+        tools.get("get_user_info")!.handler({}),
+      ).rejects.toThrow("Server error");
+    });
+  });
 });
 
 describe("upload tools", () => {
