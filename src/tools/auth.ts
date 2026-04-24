@@ -182,10 +182,35 @@ export function registerAuthTools(
       }
     },
   );
-  server.tool("logout", "placeholder — implemented in Task 8", {}, async () => ({
-    content: [{ type: "text", text: "not yet implemented" }],
-    isError: true,
-  }));
+  server.tool(
+    "logout",
+    "Revoke the stored DeployGate token on the server and delete the local token file. Use this to sign out of DeployGate on this machine.",
+    {},
+    async () => {
+      if (!client.hasToken()) {
+        return {
+          content: [{ type: "text", text: "Already logged out." }],
+        };
+      }
+
+      let revokeFailed = false;
+      try {
+        await client.revokeCurrentToken();
+      } catch {
+        revokeFailed = true;
+      }
+
+      await tokenStore.clear();
+      client.setToken("");
+
+      const note = revokeFailed
+        ? " (Note: the server-side revoke may not have succeeded; the local token was deleted regardless.)"
+        : "";
+      return {
+        content: [{ type: "text", text: `Logged out.${note}` }],
+      };
+    },
+  );
   server.tool("get_user_info", "placeholder — implemented in Task 9", {}, async () => ({
     content: [{ type: "text", text: "not yet implemented" }],
     isError: true,

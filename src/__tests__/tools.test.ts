@@ -329,6 +329,72 @@ describe("auth tools", () => {
       expect(client.pollDeviceCode).toHaveBeenCalledTimes(3);
     });
   });
+
+  describe("logout", () => {
+    it("is a no-op when not logged in", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(false);
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain("Already logged out");
+      expect(client.revokeCurrentToken).not.toHaveBeenCalled();
+      expect(tokenStore.clear).not.toHaveBeenCalled();
+    });
+
+    it("revokes, clears the store, clears in-memory token", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(client.revokeCurrentToken).toHaveBeenCalledTimes(1);
+      expect(tokenStore.clear).toHaveBeenCalledTimes(1);
+      expect(client.setToken).toHaveBeenCalledWith("");
+    });
+
+    it("swallows revoke 401 and still clears local state", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      (client.revokeCurrentToken as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new DeployGateApiError({
+          error: true,
+          message: "unauthorized",
+          error_type: "unauthorized",
+        }),
+      );
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(tokenStore.clear).toHaveBeenCalled();
+      expect(client.setToken).toHaveBeenCalledWith("");
+    });
+
+    it("swallows network error on revoke and still clears local state", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      (client.revokeCurrentToken as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error("ENETUNREACH"),
+      );
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(tokenStore.clear).toHaveBeenCalled();
+      expect(result.content[0].text).toContain("server-side revoke");
+    });
+  });
 });
 
 describe("upload tools", () => {
