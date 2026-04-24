@@ -21012,9 +21012,30 @@ var DeployGateClient = class {
   hasToken() {
     return this.token !== void 0 && this.token !== "";
   }
+  async requestRaw(method, path, options) {
+    const url = `${BASE_URL}${path}`;
+    const headers = { ...options.headers ?? {} };
+    if (options.authenticated) {
+      if (!this.token) {
+        throw new Error("API token is not set. Run the `login_start` tool to obtain one.");
+      }
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+    const fetchOptions = { method, headers };
+    if (options.body !== void 0) {
+      headers["Content-Type"] = "application/json";
+      fetchOptions.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(url, fetchOptions);
+    if (response.status === 204) {
+      return { status: 204, data: null };
+    }
+    const data = await response.json();
+    return { status: response.status, data };
+  }
   async request(method, path, options) {
     if (!this.token) {
-      throw new Error("API token is not set. Get your token at https://deploygate.com/settings and use the set_api_token tool, or set the DEPLOYGATE_API_TOKEN environment variable.");
+      throw new Error("API token is not set. Run the `login_start` tool to obtain one.");
     }
     const url = `${BASE_URL}${path}`;
     const headers = {
@@ -21044,6 +21065,82 @@ var DeployGateClient = class {
   async getOrganizations() {
     return this.request("GET", "/api/organizations");
   }
+  // --- Device auth code flow ---
+  async createDeviceCode(clientLabel, nonce) {
+    const res = await this.requestRaw("POST", "/api/sessions/codes", {
+      authenticated: false,
+      headers: { "X-Client-Nonce": nonce },
+      body: { client_label: clientLabel }
+    });
+    const data = res.data;
+    if (!data || data.error) {
+      throw new DeployGateApiError(data ?? {
+        error: true,
+        message: `Unexpected status ${res.status}`
+      });
+    }
+    const r = data.results;
+    return {
+      code: r.code,
+      verification_uri_complete: r.verification_uri_complete,
+      expires_in: r.expires_in,
+      interval: r.interval
+    };
+  }
+  async pollDeviceCode(code, nonce) {
+    const res = await this.requestRaw("GET", `/api/sessions/codes/${code}`, {
+      authenticated: false,
+      headers: { "X-Client-Nonce": nonce }
+    });
+    if (res.status === 401)
+      return { status: "rejected" };
+    if (res.status === 429)
+      return { status: "rate_limited" };
+    if (res.status === 400) {
+      const d = res.data;
+      if (d?.message === "Client nonce mismatch.") {
+        return { status: "nonce_mismatch" };
+      }
+      throw new DeployGateApiError(d);
+    }
+    if (res.status < 200 || res.status >= 300) {
+      throw new DeployGateApiError(res.data ?? {
+        error: true,
+        message: `Unexpected status ${res.status}`
+      });
+    }
+    const data = res.data;
+    if (data.error) {
+      throw new DeployGateApiError(data);
+    }
+    const r = data.results;
+    if (r.status === "pending")
+      return { status: "pending" };
+    if (r.status === "authorized") {
+      return {
+        status: "authorized",
+        api_token: r.api_token,
+        user: r.user
+      };
+    }
+    throw new DeployGateApiError({
+      error: true,
+      message: `Unexpected poll status: ${String(r.status)}`
+    });
+  }
+  async revokeCurrentToken() {
+    const res = await this.requestRaw("DELETE", "/api/sessions/current_token", {
+      authenticated: true
+    });
+    if (res.status === 204)
+      return;
+    if (res.status < 200 || res.status >= 300) {
+      throw new DeployGateApiError(res.data ?? {
+        error: true,
+        message: `Unexpected status ${res.status}`
+      });
+    }
+  }
   // --- App upload ---
   async uploadApp(ownerName, filePath, options) {
     const fileBuffer = await readFile(filePath);
@@ -21070,11 +21167,11 @@ var DeployGateClient = class {
     return this.request("POST", `/api/users/${ownerName}/apps`, { formData });
   }
   // --- Distribution management ---
-  async createDistribution(ownerName, platform, appId, params) {
-    return this.request("POST", `/api/users/${ownerName}/platforms/${platform}/apps/${appId}/distributions`, { body: params });
+  async createDistribution(ownerName, platform2, appId, params) {
+    return this.request("POST", `/api/users/${ownerName}/platforms/${platform2}/apps/${appId}/distributions`, { body: params });
   }
-  async listDistributions(ownerName, platform, appId) {
-    return this.request("GET", `/api/users/${ownerName}/platforms/${platform}/apps/${appId}/distributions`);
+  async listDistributions(ownerName, platform2, appId) {
+    return this.request("GET", `/api/users/${ownerName}/platforms/${platform2}/apps/${appId}/distributions`);
   }
   async getDistribution(accessKey) {
     return this.request("GET", `/api/distributions/${accessKey}`);
@@ -21118,8 +21215,8 @@ var DeployGateClient = class {
     return this.request("DELETE", `/api/organizations/${project}/teams/${team}/users/${user}`);
   }
   // --- App team assignment ---
-  async assignTeamToApp(project, platform, appId, team) {
-    return this.request("POST", `/api/organizations/${project}/platforms/${platform}/apps/${appId}/teams`, { body: { team } });
+  async assignTeamToApp(project, platform2, appId, team) {
+    return this.request("POST", `/api/organizations/${project}/platforms/${platform2}/apps/${appId}/teams`, { body: { team } });
   }
   // --- Shared teams ---
   async createSharedTeam(workspace, name) {
@@ -21136,39 +21233,253 @@ var DeployGateClient = class {
   async removeSharedTeamMember(workspace, sharedTeamId, userId) {
     return this.request("DELETE", `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users/${userId}`);
   }
-  async assignSharedTeamToApp(project, platform, appId, team) {
-    return this.request("POST", `/api/organizations/${project}/platforms/${platform}/apps/${appId}/sharedteams`, { body: { team } });
+  async assignSharedTeamToApp(project, platform2, appId, team) {
+    return this.request("POST", `/api/organizations/${project}/platforms/${platform2}/apps/${appId}/sharedteams`, { body: { team } });
+  }
+};
+
+// dist/token-store.js
+import { mkdir, rename, rm, writeFile, readFile as readFile2, chmod } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { homedir, platform } from "node:os";
+import { dirname, join } from "node:path";
+var TokenStore = class _TokenStore {
+  filePath;
+  constructor(filePath = _TokenStore.defaultPath()) {
+    this.filePath = filePath;
+  }
+  static defaultPath() {
+    if (platform() === "win32") {
+      const appData = process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
+      return join(appData, "deploygate", "token");
+    }
+    const base = process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
+    return join(base, "deploygate", "token");
+  }
+  path() {
+    return this.filePath;
+  }
+  async load() {
+    let raw;
+    try {
+      raw = await readFile2(this.filePath, "utf8");
+    } catch {
+      return null;
+    }
+    if (raw.trim() === "")
+      return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.token !== "string" || parsed.token === "")
+        return null;
+      return { token: parsed.token };
+    } catch {
+      return null;
+    }
+  }
+  async save(token) {
+    const dir = dirname(this.filePath);
+    await mkdir(dir, { recursive: true, mode: 448 });
+    if (platform() !== "win32") {
+      try {
+        await chmod(dir, 448);
+      } catch {
+      }
+    }
+    const payload = { token, saved_at: Date.now() };
+    const tmpPath = `${this.filePath}.${randomBytes(6).toString("hex")}.tmp`;
+    await writeFile(tmpPath, JSON.stringify(payload), { mode: 384 });
+    if (platform() !== "win32") {
+      await chmod(tmpPath, 384);
+    }
+    await rename(tmpPath, this.filePath);
+  }
+  async clear() {
+    try {
+      await rm(this.filePath);
+    } catch (e) {
+      const err = e;
+      if (err.code !== "ENOENT")
+        throw err;
+    }
   }
 };
 
 // dist/tools/auth.js
-function registerAuthTools(server2, client2) {
-  server2.tool("set_api_token", "Set the DeployGate API token for this session. Validates the token by calling the API and returns user information on success. For persistent configuration, set the DEPLOYGATE_API_TOKEN environment variable in your MCP server settings.", {
-    api_token: external_exports.string().describe("DeployGate API token (get it from https://deploygate.com/settings)")
-  }, async (args) => {
-    client2.setToken(args.api_token);
-    try {
-      const results = await client2.getOrganizations();
+import { randomBytes as randomBytes2 } from "node:crypto";
+var CLIENT_LABEL = "Claude Code DeployGate plugin";
+var pendingLogin = null;
+function generateNonce() {
+  return randomBytes2(48).toString("base64url");
+}
+function registerAuthTools(server2, client2, tokenStore2, opts = {}) {
+  const sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const now = opts.now ?? (() => Date.now());
+  server2.tool("login_start", "Start DeployGate login via the device authorization code flow. Returns a URL for the user to open in their browser and approve. After the user approves, call `login_wait` to receive and store the token.", {}, async () => {
+    const nonce = generateNonce();
+    const res = await client2.createDeviceCode(CLIENT_LABEL, nonce);
+    pendingLogin = {
+      nonce,
+      code: res.code,
+      intervalMs: res.interval * 1e3,
+      deadlineMs: now() + res.expires_in * 1e3
+    };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Open this URL in your browser and approve the login:
+
+  ${res.verification_uri_complete}
+
+Short code: ${res.code} (expires in ${res.expires_in}s)
+
+Then call the \`login_wait\` tool to receive the token.`
+        }
+      ]
+    };
+  });
+  server2.tool("login_wait", "Wait for the user to approve the login started by `login_start`. Polls the server on the server-specified interval until the code is authorized, rejected, or expired (~5 minutes). On success, stores the token locally and returns workspace info.", {}, async () => {
+    const session = pendingLogin;
+    pendingLogin = null;
+    if (!session) {
       return {
         content: [
           {
             type: "text",
-            text: `API token set successfully.
+            text: "No login in progress. Call `login_start` first."
+          }
+        ],
+        isError: true
+      };
+    }
+    let rateLimited = 0;
+    let networkErrors = 0;
+    const MAX_RATE_LIMITED = 3;
+    const MAX_NETWORK_ERRORS = 3;
+    while (true) {
+      if (now() > session.deadlineMs) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "The code expired after 5 minutes. Run `login_start` again."
+            }
+          ],
+          isError: true
+        };
+      }
+      await sleep(session.intervalMs);
+      let res = null;
+      try {
+        res = await client2.pollDeviceCode(session.code, session.nonce);
+        networkErrors = 0;
+      } catch {
+        networkErrors += 1;
+        if (networkErrors >= MAX_NETWORK_ERRORS) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Repeated network errors while polling. Check your connection and run `login_start` again."
+              }
+            ],
+            isError: true
+          };
+        }
+        continue;
+      }
+      if (res.status === "pending")
+        continue;
+      if (res.status === "rate_limited") {
+        rateLimited += 1;
+        if (rateLimited >= MAX_RATE_LIMITED) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Hit the server's rate limit repeatedly. Wait a minute and run `login_start` again."
+              }
+            ],
+            isError: true
+          };
+        }
+        continue;
+      }
+      if (res.status === "rejected") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Login was not approved, or the code expired. Run `login_start` again."
+            }
+          ],
+          isError: true
+        };
+      }
+      if (res.status === "nonce_mismatch") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Login aborted for security reasons (nonce mismatch). Run `login_start` again."
+            }
+          ],
+          isError: true
+        };
+      }
+      await tokenStore2.save(res.api_token);
+      client2.setToken(res.api_token);
+      const orgs = await client2.getOrganizations();
+      const userName = res.user.name ?? "(unknown)";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Logged in as ${userName}.
 
-${JSON.stringify(results, null, 2)}
+` + JSON.stringify(orgs, null, 2) + `
 
-Note: This token is only valid for the current session. To persist it, set the DEPLOYGATE_API_TOKEN environment variable in your MCP server configuration.`
+Token saved to ${tokenStore2.path()}.`
           }
         ]
       };
+    }
+  });
+  server2.tool("logout", "Revoke the stored DeployGate token on the server and delete the local token file. Use this to sign out of DeployGate on this machine.", {}, async () => {
+    if (!client2.hasToken()) {
+      return {
+        content: [{ type: "text", text: "Already logged out." }]
+      };
+    }
+    let revokeFailed = false;
+    try {
+      await client2.revokeCurrentToken();
+    } catch {
+      revokeFailed = true;
+    }
+    await tokenStore2.clear();
+    client2.setToken("");
+    const note = revokeFailed ? " (Note: the server-side revoke may not have succeeded; the local token was deleted regardless.)" : "";
+    return {
+      content: [{ type: "text", text: `Logged out.${note}` }]
+    };
+  });
+  server2.tool("get_user_info", "Get current user information \u2014 workspace name and projects associated with the stored token. If the token is invalid, the local token is deleted and the tool instructs the user to run `login_start`.", {}, async () => {
+    try {
+      const orgs = await client2.getOrganizations();
+      return {
+        content: [{ type: "text", text: JSON.stringify(orgs, null, 2) }]
+      };
     } catch (e) {
       if (e instanceof DeployGateApiError && e.errorType === "unauthorized") {
+        await tokenStore2.clear();
         client2.setToken("");
         return {
           content: [
             {
               type: "text",
-              text: "Error: The provided API token is invalid. Please check your token at https://deploygate.com/settings"
+              text: "The stored token is invalid. Run `login_start` to log in again."
             }
           ],
           isError: true
@@ -21176,12 +21487,6 @@ Note: This token is only valid for the current session. To persist it, set the D
       }
       throw e;
     }
-  });
-  server2.tool("get_user_info", "Get current user information. Returns the workspace name and projects associated with the API token.", {}, async () => {
-    const results = await client2.getOrganizations();
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
-    };
   });
 }
 
@@ -21489,12 +21794,14 @@ function registerSharedTeamTools(server2, client2) {
 }
 
 // dist/index.js
-var client = new DeployGateClient(process.env.DEPLOYGATE_API_TOKEN);
+var tokenStore = new TokenStore();
+var stored = await tokenStore.load();
+var client = new DeployGateClient(stored?.token);
 var server = new McpServer({
   name: "deploygate",
   version: "1.0.0"
 });
-registerAuthTools(server, client);
+registerAuthTools(server, client, tokenStore);
 registerUploadTools(server, client);
 registerDistributionTools(server, client);
 registerUdidTools(server, client);
