@@ -1,64 +1,81 @@
+import { randomBytes } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
 import { DeployGateApiError, DeployGateClient } from "../client.js";
+import { TokenStore } from "../token-store.js";
+
+const CLIENT_LABEL = "Claude Code DeployGate plugin";
+
+interface PendingLogin {
+  nonce: string;
+  code: string;
+  intervalMs: number;
+  deadlineMs: number;
+}
+
+let pendingLogin: PendingLogin | null = null;
+
+function generateNonce(): string {
+  return randomBytes(48).toString("base64url");
+}
+
+// Exposed for tests.
+export function _resetPendingLoginForTests(): void {
+  pendingLogin = null;
+}
 
 export function registerAuthTools(
   server: McpServer,
   client: DeployGateClient,
+  tokenStore: TokenStore,
+  opts: { sleep?: (ms: number) => Promise<void>; now?: () => number } = {},
 ): void {
-  server.tool(
-    "set_api_token",
-    "Set the DeployGate API token for this session. Validates the token by calling the API and returns user information on success. For persistent configuration, set the DEPLOYGATE_API_TOKEN environment variable in your MCP server settings.",
-    {
-      api_token: z
-        .string()
-        .describe(
-          "DeployGate API token (get it from https://deploygate.com/settings)",
-        ),
-    },
-    async (args) => {
-      client.setToken(args.api_token);
-
-      try {
-        const results = await client.getOrganizations();
-        return {
-          content: [
-            {
-              type: "text",
-              text: `API token set successfully.\n\n${JSON.stringify(results, null, 2)}\n\nNote: This token is only valid for the current session. To persist it, set the DEPLOYGATE_API_TOKEN environment variable in your MCP server configuration.`,
-            },
-          ],
-        };
-      } catch (e) {
-        if (
-          e instanceof DeployGateApiError &&
-          e.errorType === "unauthorized"
-        ) {
-          client.setToken("");
-          return {
-            content: [
-              {
-                type: "text",
-                text: "Error: The provided API token is invalid. Please check your token at https://deploygate.com/settings",
-              },
-            ],
-            isError: true,
-          };
-        }
-        throw e;
-      }
-    },
-  );
+  const sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const now = opts.now ?? (() => Date.now());
 
   server.tool(
-    "get_user_info",
-    "Get current user information. Returns the workspace name and projects associated with the API token.",
+    "login_start",
+    "Start DeployGate login via the device authorization code flow. Returns a URL for the user to open in their browser and approve. After the user approves, call `login_wait` to receive and store the token.",
     {},
     async () => {
-      const results = await client.getOrganizations();
+      const nonce = generateNonce();
+      const res = await client.createDeviceCode(CLIENT_LABEL, nonce);
+      pendingLogin = {
+        nonce,
+        code: res.code,
+        intervalMs: res.interval * 1000,
+        deadlineMs: now() + res.expires_in * 1000,
+      };
       return {
-        content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+        content: [
+          {
+            type: "text",
+            text:
+              `Open this URL in your browser and approve the login:\n\n` +
+              `  ${res.verification_uri_complete}\n\n` +
+              `Short code: ${res.code} (expires in ${res.expires_in}s)\n\n` +
+              `Then call the \`login_wait\` tool to receive the token.`,
+          },
+        ],
       };
     },
   );
+
+  server.tool("login_wait", "placeholder — implemented in Task 7", {}, async () => ({
+    content: [{ type: "text", text: "not yet implemented" }],
+    isError: true,
+  }));
+  server.tool("logout", "placeholder — implemented in Task 8", {}, async () => ({
+    content: [{ type: "text", text: "not yet implemented" }],
+    isError: true,
+  }));
+  server.tool("get_user_info", "placeholder — implemented in Task 9", {}, async () => ({
+    content: [{ type: "text", text: "not yet implemented" }],
+    isError: true,
+  }));
+
+  // The following identifiers will be used in later tasks.
+  void pendingLogin;
+  void sleep;
+  void DeployGateApiError;
+  void tokenStore;
 }

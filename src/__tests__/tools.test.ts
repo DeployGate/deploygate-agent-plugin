@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DeployGateClient, DeployGateApiError } from "../client.js";
 import { registerAuthTools } from "../tools/auth.js";
+import { TokenStore } from "../token-store.js";
 import { registerUploadTools } from "../tools/upload.js";
 import { registerDistributionTools } from "../tools/distributions.js";
 import { registerUdidTools } from "../tools/udids.js";
@@ -43,6 +44,9 @@ function createMockClient() {
     setToken: vi.fn(),
     hasToken: vi.fn(() => true),
     getOrganizations: vi.fn(),
+    createDeviceCode: vi.fn(),
+    pollDeviceCode: vi.fn(),
+    revokeCurrentToken: vi.fn(),
     uploadApp: vi.fn(),
     createDistribution: vi.fn(),
     listDistributions: vi.fn(),
@@ -66,69 +70,84 @@ function createMockClient() {
   } as unknown as DeployGateClient;
 }
 
+function createMockTokenStore(): TokenStore {
+  return {
+    path: vi.fn(() => "/tmp/test/deploygate/token"),
+    load: vi.fn(async () => null),
+    save: vi.fn(async () => undefined),
+    clear: vi.fn(async () => undefined),
+  } as unknown as TokenStore;
+}
+
 describe("auth tools", () => {
-  it("registers get_user_info and set_api_token tools", () => {
+  it("registers login_start, login_wait, logout, get_user_info", () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
-    registerAuthTools(server, client);
+    const tokenStore = createMockTokenStore();
+    registerAuthTools(server, client, tokenStore);
+    expect(tools.has("login_start")).toBe(true);
+    expect(tools.has("login_wait")).toBe(true);
+    expect(tools.has("logout")).toBe(true);
     expect(tools.has("get_user_info")).toBe(true);
-    expect(tools.has("set_api_token")).toBe(true);
   });
 
-  it("get_user_info calls getOrganizations and returns results", async () => {
+  it("login_start calls createDeviceCode and returns URL + code in text", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
-    const orgs = [{ name: "workspace1" }];
-    (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orgs,
-    );
-    registerAuthTools(server, client);
+    (client.createDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+      code: "ABCD1234",
+      verification_uri_complete: "https://deploygate.com/app/sessions/codes?code=ABCD1234",
+      expires_in: 300,
+      interval: 5,
+    });
+    registerAuthTools(server, client, createMockTokenStore());
 
-    const handler = tools.get("get_user_info")!.handler;
+    const handler = tools.get("login_start")!.handler;
     const result = await handler({});
-    expect(result.content[0].text).toBe(JSON.stringify(orgs, null, 2));
+
+    expect(client.createDeviceCode).toHaveBeenCalledTimes(1);
+    const [label, nonce] = (client.createDeviceCode as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(label).toBe("Claude Code DeployGate plugin");
+    expect(nonce).toMatch(/^[A-Za-z0-9_-]{32,128}$/);
+
+    const text = result.content[0].text;
+    expect(text).toContain("https://deploygate.com/app/sessions/codes?code=ABCD1234");
+    expect(text).toContain("ABCD1234");
+    expect(text).toContain("login_wait");
   });
 
-  it("set_api_token sets token and validates by calling getOrganizations", async () => {
+  it("login_start can be called twice (second call calls createDeviceCode again)", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
-    const orgs = [{ name: "my-workspace" }];
-    (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orgs,
-    );
-    registerAuthTools(server, client);
+    (client.createDeviceCode as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        code: "FIRST",
+        verification_uri_complete: "https://x/?code=FIRST",
+        expires_in: 300,
+        interval: 5,
+      })
+      .mockResolvedValueOnce({
+        code: "SECOND",
+        verification_uri_complete: "https://x/?code=SECOND",
+        expires_in: 300,
+        interval: 5,
+      });
+    registerAuthTools(server, client, createMockTokenStore(), {
+      sleep: async () => {},
+    });
+    const handler = tools.get("login_start")!.handler;
 
-    const handler = tools.get("set_api_token")!.handler;
-    const result = await handler({ api_token: "valid-token" });
-
-    expect(client.setToken).toHaveBeenCalledWith("valid-token");
-    expect(client.getOrganizations).toHaveBeenCalled();
-    expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain("API token set successfully");
-    expect(result.content[0].text).toContain("my-workspace");
+    const first = await handler({});
+    const second = await handler({});
+    expect(first.content[0].text).toContain("FIRST");
+    expect(second.content[0].text).toContain("SECOND");
+    expect(client.createDeviceCode).toHaveBeenCalledTimes(2);
   });
 
-  it("set_api_token clears token and returns error on invalid token", async () => {
-    const { server, tools } = createToolCapture();
-    const client = createMockClient();
-    (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new DeployGateApiError({
-        error: true,
-        message: "Unauthorized",
-        error_type: "unauthorized",
-      }),
-    );
-    registerAuthTools(server, client);
-
-    const handler = tools.get("set_api_token")!.handler;
-    const result = await handler({ api_token: "bad-token" });
-
-    expect(client.setToken).toHaveBeenCalledWith("bad-token");
-    // Clears the invalid token
-    expect(client.setToken).toHaveBeenCalledWith("");
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("invalid");
-  });
+  // The "overwrites a previous pending session" invariant — that a second
+  // login_start discards the first session so a subsequent login_wait uses
+  // the second nonce — is tested in Task 7 (login_wait), where we can
+  // actually drive the wait handler to inspect the pollDeviceCode args.
 });
 
 describe("upload tools", () => {
