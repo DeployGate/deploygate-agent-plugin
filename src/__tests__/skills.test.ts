@@ -33,7 +33,9 @@ function loadSkillCorpus(skillDir: string): string {
 
 // All MCP tool names implemented in src/tools/
 const IMPLEMENTED_TOOLS = [
-  "set_api_token",
+  "login_start",
+  "login_wait",
+  "logout",
   "get_user_info",
   "upload_app",
   "create_distribution",
@@ -61,7 +63,8 @@ describe("skills/setup", () => {
 
   it("references only implemented MCP tools (across SKILL.md + references)", () => {
     const toolRefs = [
-      "set_api_token",
+      "login_start",
+      "login_wait",
       "get_user_info",
       "upload_app",
       "create_distribution",
@@ -81,8 +84,9 @@ describe("skills/setup", () => {
     expect(main).toContain("https://deploygate.com/app/register/signup");
   });
 
-  it("SKILL.md contains correct API key settings URL", () => {
-    expect(main).toContain("https://deploygate.com/settings");
+  it("SKILL.md contains device-auth login flow tools", () => {
+    expect(main).toContain("login_start");
+    expect(main).toContain("login_wait");
   });
 
   it("SKILL.md contains distribution URL pattern", () => {

@@ -133,7 +133,7 @@ describe("plugin/skills/ (slash commands)", () => {
     );
     expect(content).toContain("Progress Display");
     expect(content).toContain("Phase 1");
-    expect(content).toContain("set_api_token");
+    expect(content).toContain("login_start");
   });
 
   it("deploy skill contains upload instructions", () => {
