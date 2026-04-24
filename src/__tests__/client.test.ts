@@ -257,6 +257,103 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("pollDeviceCode", () => {
+    it("GETs /api/sessions/codes/<code> with X-Client-Nonce", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          { error: false, results: { status: "pending" } },
+          200,
+        ),
+      );
+      const noTokenClient = new DeployGateClient();
+      const res = await noTokenClient.pollDeviceCode("ABCD1234", "n0nce");
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/sessions/codes/ABCD1234");
+      expect(options.method).toBe("GET");
+      expect(options.headers["X-Client-Nonce"]).toBe("n0nce");
+      expect(options.headers.Authorization).toBeUndefined();
+      expect(res).toEqual({ status: "pending" });
+    });
+
+    it("returns authorized with token and user on success", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          {
+            error: false,
+            results: {
+              status: "authorized",
+              api_token: "deploygate_cacc_xxx",
+              user: { name: "kitakore", email: "k@example.com" },
+            },
+          },
+          200,
+        ),
+      );
+      const res = await new DeployGateClient().pollDeviceCode("C", "n");
+      expect(res).toEqual({
+        status: "authorized",
+        api_token: "deploygate_cacc_xxx",
+        user: { name: "kitakore", email: "k@example.com" },
+      });
+    });
+
+    it("returns rejected on 401", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: true, message: "unauthorized" }, 401),
+      );
+      const res = await new DeployGateClient().pollDeviceCode("C", "n");
+      expect(res).toEqual({ status: "rejected" });
+    });
+
+    it("returns nonce_mismatch on 400 Client nonce mismatch.", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          { error: true, message: "Client nonce mismatch." },
+          400,
+        ),
+      );
+      const res = await new DeployGateClient().pollDeviceCode("C", "n");
+      expect(res).toEqual({ status: "nonce_mismatch" });
+    });
+
+    it("returns rate_limited on 429", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: true, message: "too many requests" }, 429),
+      );
+      const res = await new DeployGateClient().pollDeviceCode("C", "n");
+      expect(res).toEqual({ status: "rate_limited" });
+    });
+
+    it("throws DeployGateApiError on other 4xx", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: true, message: "bad" }, 422),
+      );
+      await expect(
+        new DeployGateClient().pollDeviceCode("C", "n"),
+      ).rejects.toThrow(DeployGateApiError);
+    });
+
+    it("does not wrap authorized response in DeployGateApiError", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          {
+            error: false,
+            results: {
+              status: "authorized",
+              api_token: "t",
+              user: { name: "u" },
+            },
+          },
+          200,
+        ),
+      );
+      await expect(
+        new DeployGateClient().pollDeviceCode("C", "n"),
+      ).resolves.toEqual(expect.objectContaining({ status: "authorized" }));
+    });
+  });
+
   describe("getOrganizations", () => {
     it("returns results from response", async () => {
       const orgs = [{ name: "my-workspace", projects: [] }];

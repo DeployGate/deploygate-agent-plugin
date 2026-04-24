@@ -163,6 +163,62 @@ export class DeployGateClient {
     };
   }
 
+  async pollDeviceCode(
+    code: string,
+    nonce: string,
+  ): Promise<
+    | { status: "pending" }
+    | {
+        status: "authorized";
+        api_token: string;
+        user: Record<string, unknown>;
+      }
+    | { status: "rejected" }
+    | { status: "nonce_mismatch" }
+    | { status: "rate_limited" }
+  > {
+    const res = await this.requestRaw("GET", `/api/sessions/codes/${code}`, {
+      authenticated: false,
+      headers: { "X-Client-Nonce": nonce },
+    });
+
+    if (res.status === 401) return { status: "rejected" };
+    if (res.status === 429) return { status: "rate_limited" };
+    if (res.status === 400) {
+      const d = res.data as { message?: string } | null;
+      if (d?.message === "Client nonce mismatch.") {
+        return { status: "nonce_mismatch" };
+      }
+      throw new DeployGateApiError(d as DeployGateErrorDetail);
+    }
+    if (res.status < 200 || res.status >= 300) {
+      throw new DeployGateApiError(
+        (res.data as DeployGateErrorDetail) ?? {
+          error: true,
+          message: `Unexpected status ${res.status}`,
+        },
+      );
+    }
+
+    const data = res.data as { error?: boolean; results?: Record<string, unknown> };
+    if (data.error) {
+      throw new DeployGateApiError(data as unknown as DeployGateErrorDetail);
+    }
+    const r = data.results as Record<string, unknown>;
+    if (r.status === "pending") return { status: "pending" };
+    if (r.status === "authorized") {
+      return {
+        status: "authorized",
+        api_token: r.api_token as string,
+        user: r.user as Record<string, unknown>,
+      };
+    }
+    throw new DeployGateApiError({
+      error: true,
+      message: `Unexpected poll status: ${String(r.status)}`,
+    });
+  }
+
   // --- App upload ---
 
   async uploadApp(
