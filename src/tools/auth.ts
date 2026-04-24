@@ -60,10 +60,128 @@ export function registerAuthTools(
     },
   );
 
-  server.tool("login_wait", "placeholder — implemented in Task 7", {}, async () => ({
-    content: [{ type: "text", text: "not yet implemented" }],
-    isError: true,
-  }));
+  server.tool(
+    "login_wait",
+    "Wait for the user to approve the login started by `login_start`. Polls the server on the server-specified interval until the code is authorized, rejected, or expired (~5 minutes). On success, stores the token locally and returns workspace info.",
+    {},
+    async () => {
+      const session = pendingLogin;
+      pendingLogin = null;
+      if (!session) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "No login in progress. Call `login_start` first.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      let rateLimited = 0;
+      let networkErrors = 0;
+      const MAX_RATE_LIMITED = 3;
+      const MAX_NETWORK_ERRORS = 3;
+
+      while (true) {
+        if (now() > session.deadlineMs) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "The code expired after 5 minutes. Run `login_start` again.",
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        await sleep(session.intervalMs);
+
+        let res:
+          | Awaited<ReturnType<DeployGateClient["pollDeviceCode"]>>
+          | null = null;
+        try {
+          res = await client.pollDeviceCode(session.code, session.nonce);
+          networkErrors = 0;
+        } catch {
+          networkErrors += 1;
+          if (networkErrors >= MAX_NETWORK_ERRORS) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Repeated network errors while polling. Check your connection and run `login_start` again.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          continue;
+        }
+
+        if (res.status === "pending") continue;
+
+        if (res.status === "rate_limited") {
+          rateLimited += 1;
+          if (rateLimited >= MAX_RATE_LIMITED) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Hit the server's rate limit repeatedly. Wait a minute and run `login_start` again.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          continue;
+        }
+
+        if (res.status === "rejected") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Login was not approved, or the code expired. Run `login_start` again.",
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        if (res.status === "nonce_mismatch") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Login aborted for security reasons (nonce mismatch). Run `login_start` again.",
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // authorized
+        await tokenStore.save(res.api_token);
+        client.setToken(res.api_token);
+        const orgs = await client.getOrganizations();
+        const userName = (res.user as { name?: string }).name ?? "(unknown)";
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Logged in as ${userName}.\n\n` +
+                JSON.stringify(orgs, null, 2) +
+                `\n\nToken saved to ${tokenStore.path()}.`,
+            },
+          ],
+        };
+      }
+    },
+  );
   server.tool("logout", "placeholder — implemented in Task 8", {}, async () => ({
     content: [{ type: "text", text: "not yet implemented" }],
     isError: true,
@@ -74,8 +192,5 @@ export function registerAuthTools(
   }));
 
   // The following identifiers will be used in later tasks.
-  void pendingLogin;
-  void sleep;
   void DeployGateApiError;
-  void tokenStore;
 }

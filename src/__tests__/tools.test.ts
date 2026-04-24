@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DeployGateClient, DeployGateApiError } from "../client.js";
-import { registerAuthTools } from "../tools/auth.js";
+import { registerAuthTools, _resetPendingLoginForTests } from "../tools/auth.js";
 import { TokenStore } from "../token-store.js";
 import { registerUploadTools } from "../tools/upload.js";
 import { registerDistributionTools } from "../tools/distributions.js";
@@ -148,6 +148,187 @@ describe("auth tools", () => {
   // login_start discards the first session so a subsequent login_wait uses
   // the second nonce — is tested in Task 7 (login_wait), where we can
   // actually drive the wait handler to inspect the pollDeviceCode args.
+
+  describe("login_wait", () => {
+    beforeEach(() => _resetPendingLoginForTests());
+
+    async function runLoginStart(
+      client: ReturnType<typeof createMockClient>,
+      tokenStore = createMockTokenStore(),
+    ) {
+      const { server, tools } = createToolCapture();
+      (client.createDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+        code: "CODE",
+        verification_uri_complete: "https://x/?code=CODE",
+        expires_in: 300,
+        interval: 5,
+      });
+      let currentTime = 1_000_000;
+      registerAuthTools(server, client, tokenStore, {
+        sleep: async () => {},
+        now: () => currentTime,
+      });
+      const startHandler = tools.get("login_start")!.handler;
+      const waitHandler = tools.get("login_wait")!.handler;
+      await startHandler({});
+      return { waitHandler, tokenStore, tools, advanceTime: (ms: number) => { currentTime += ms; } };
+    }
+
+    it("returns an error when no session is pending", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      const handler = tools.get("login_wait")!.handler;
+      const result = await handler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("login_start");
+    });
+
+    it("polls until authorized, saves token, returns user info", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ status: "pending" })
+        .mockResolvedValueOnce({ status: "pending" })
+        .mockResolvedValueOnce({
+          status: "authorized",
+          api_token: "deploygate_cacc_good",
+          user: { name: "kitakore" },
+        });
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { name: "my-workspace" },
+      ]);
+
+      const { waitHandler, tokenStore } = await runLoginStart(client);
+      const result = await waitHandler({});
+
+      expect(result.isError).toBeUndefined();
+      expect(tokenStore.save).toHaveBeenCalledWith("deploygate_cacc_good");
+      expect(client.setToken).toHaveBeenCalledWith("deploygate_cacc_good");
+      expect(result.content[0].text).toContain("kitakore");
+      expect(result.content[0].text).toContain("my-workspace");
+    });
+
+    it("returns an error on rejected and does not retry", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "rejected",
+      });
+      const { waitHandler, tokenStore } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("login_start");
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(1);
+      expect(tokenStore.save).not.toHaveBeenCalled();
+    });
+
+    it("returns an error on nonce_mismatch and does not retry", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "nonce_mismatch",
+      });
+      const { waitHandler } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text.toLowerCase()).toContain("security");
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries on rate_limited up to 3 times then fails", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ status: "rate_limited" })
+        .mockResolvedValueOnce({ status: "rate_limited" })
+        .mockResolvedValueOnce({ status: "rate_limited" });
+      const { waitHandler } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(3);
+    });
+
+    it("times out when the deadline is exceeded", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+        status: "pending",
+      });
+      const { waitHandler, advanceTime } = await runLoginStart(client);
+
+      // Each sleep() call advances virtual time past interval.
+      // Use a wrapping sleep that moves the clock forward.
+      // Replace the registered handler's sleep by re-registering with a time-advancing sleep:
+      // Simplest: push the clock past the 300s expiry immediately.
+      advanceTime(301_000);
+
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("expired");
+    });
+
+    it("clears the pending session after success (second wait fails)", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "authorized",
+        api_token: "t",
+        user: { name: "u" },
+      });
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      const { waitHandler } = await runLoginStart(client);
+      await waitHandler({});
+      const second = await waitHandler({});
+      expect(second.isError).toBe(true);
+    });
+
+    it("a second login_start discards the first session (wait uses the newer code)", async () => {
+      const client = createMockClient();
+      (client.createDeviceCode as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          code: "FIRST",
+          verification_uri_complete: "https://x/?code=FIRST",
+          expires_in: 300,
+          interval: 5,
+        })
+        .mockResolvedValueOnce({
+          code: "SECOND",
+          verification_uri_complete: "https://x/?code=SECOND",
+          expires_in: 300,
+          interval: 5,
+        });
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+        status: "authorized",
+        api_token: "t",
+        user: { name: "u" },
+      });
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const { server, tools } = createToolCapture();
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      const startHandler = tools.get("login_start")!.handler;
+      const waitHandler = tools.get("login_wait")!.handler;
+
+      await startHandler({});
+      await startHandler({});
+      await waitHandler({});
+
+      const pollArgs = (client.pollDeviceCode as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(pollArgs[0]).toBe("SECOND");
+    });
+
+    it("tolerates up to 3 consecutive network errors, then fails", async () => {
+      const client = createMockClient();
+      const netErr = new Error("network down");
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(netErr)
+        .mockRejectedValueOnce(netErr)
+        .mockRejectedValueOnce(netErr);
+      const { waitHandler } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(3);
+    });
+  });
 });
 
 describe("upload tools", () => {
