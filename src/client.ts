@@ -40,6 +40,41 @@ export class DeployGateClient {
     return this.token !== undefined && this.token !== "";
   }
 
+  async requestRaw(
+    method: string,
+    path: string,
+    options: {
+      authenticated: boolean;
+      headers?: Record<string, string>;
+      body?: Record<string, unknown>;
+    },
+  ): Promise<{ status: number; data: unknown }> {
+    const url = `${BASE_URL}${path}`;
+    const headers: Record<string, string> = { ...(options.headers ?? {}) };
+
+    if (options.authenticated) {
+      if (!this.token) {
+        throw new Error(
+          "API token is not set. Run the `login_start` tool to obtain one.",
+        );
+      }
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    const fetchOptions: RequestInit = { method, headers };
+    if (options.body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      fetchOptions.body = JSON.stringify(options.body);
+    }
+
+    const response = await fetch(url, fetchOptions);
+    if (response.status === 204) {
+      return { status: 204, data: null };
+    }
+    const data = (await response.json()) as unknown;
+    return { status: response.status, data };
+  }
+
   private async request<T = unknown>(
     method: string,
     path: string,
@@ -50,7 +85,7 @@ export class DeployGateClient {
   ): Promise<T> {
     if (!this.token) {
       throw new Error(
-        "API token is not set. Get your token at https://deploygate.com/settings and use the set_api_token tool, or set the DEPLOYGATE_API_TOKEN environment variable.",
+        "API token is not set. Run the `login_start` tool to obtain one.",
       );
     }
     const url = `${BASE_URL}${path}`;

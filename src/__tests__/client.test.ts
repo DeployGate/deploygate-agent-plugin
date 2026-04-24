@@ -130,6 +130,82 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("requestRaw", () => {
+    it("omits Authorization header when authenticated: false", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: {} }),
+      );
+      await client.requestRaw("POST", "/api/x", {
+        authenticated: false,
+        body: { a: 1 },
+      });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers.Authorization).toBeUndefined();
+    });
+
+    it("sends extra headers", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: {} }),
+      );
+      await client.requestRaw("POST", "/api/x", {
+        authenticated: false,
+        headers: { "X-Client-Nonce": "n0nce" },
+      });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers["X-Client-Nonce"]).toBe("n0nce");
+    });
+
+    it("returns { status, data } tuple", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ hello: "world" }, 200),
+      );
+      const res = await client.requestRaw("GET", "/api/x", {
+        authenticated: false,
+      });
+      expect(res.status).toBe(200);
+      expect(res.data).toEqual({ hello: "world" });
+    });
+
+    it("returns data: null on 204 without calling .json()", async () => {
+      const jsonSpy = vi.fn();
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        json: jsonSpy,
+      });
+      const res = await client.requestRaw("DELETE", "/api/x", {
+        authenticated: true,
+      });
+      expect(res.status).toBe(204);
+      expect(res.data).toBeNull();
+      expect(jsonSpy).not.toHaveBeenCalled();
+    });
+
+    it("does NOT throw on non-2xx; caller inspects status", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: true, message: "bad" }, 400),
+      );
+      const res = await client.requestRaw("GET", "/api/x", {
+        authenticated: false,
+      });
+      expect(res.status).toBe(400);
+      expect(res.data).toEqual({ error: true, message: "bad" });
+    });
+
+    it("serializes JSON body with Content-Type: application/json", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: {} }),
+      );
+      await client.requestRaw("POST", "/api/x", {
+        authenticated: false,
+        body: { client_label: "test" },
+      });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers["Content-Type"]).toBe("application/json");
+      expect(options.body).toBe(JSON.stringify({ client_label: "test" }));
+    });
+  });
+
   describe("getOrganizations", () => {
     it("returns results from response", async () => {
       const orgs = [{ name: "my-workspace", projects: [] }];
