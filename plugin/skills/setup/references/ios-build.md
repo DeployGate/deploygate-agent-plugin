@@ -8,7 +8,14 @@ If the IPA build fails (e.g. code signing issues), resolve the issue before uplo
 
 Check if fastlane is installed (`which fastlane`). Then use `AskUserQuestion`:
 
-- Question: "iOS アプリのビルド方法を選択してください" (header: "ビルド方法")
+- Question (en): "Which build method do you want to use for the iOS app?" (header: "Build method")
+  - If fastlane is installed:
+    - "Use fastlane (recommended)" — Build via `fastlane gym`. Also works for UDID registration later, so recommended
+    - "Use xcodebuild" — Build directly with Xcode's command-line tools
+  - If fastlane is NOT installed:
+    - "Install fastlane and use it (recommended)" — Run `brew install fastlane`, then build. Also works for UDID registration later, so recommended
+    - "Use xcodebuild" — Build directly with Xcode's command-line tools
+- Question (ja): "iOS アプリのビルド方法を選択してください" (header: "ビルド方法")
   - If fastlane is installed:
     - "fastlane を使う (推奨)" — fastlane gym でビルド。UDID 登録にも使えるため推奨です
     - "xcodebuild を使う" — Xcode のコマンドラインツールで直接ビルドします
