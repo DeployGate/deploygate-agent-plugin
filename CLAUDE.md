@@ -36,9 +36,9 @@ CI runs `npm run build && npm test` on every PR and push to main.
 - `members.ts` — multi-step member management (workspace → project → team → app)
 - `shared-teams.ts` — workspace-wide shared team management
 
-**Plugin assets** (`plugin/`): Contains the Claude plugin manifest (`plugin/.claude-plugin/plugin.json`), MCP server config (`.mcp.json`), skills (slash commands in `plugin/skills/`), GitHub Actions templates (`plugin/templates/`), and the bundled server script. The `plugin/` subdirectory is the published plugin root.
+**Plugin assets** (`plugin/`): Contains the Claude Code plugin manifest (`plugin/.claude-plugin/plugin.json`), MCP server config (`.mcp.json`), skills (slash commands in `plugin/skills/`), GitHub Actions templates (`plugin/templates/`), and the bundled server script. The `plugin/` subdirectory is the published plugin root.
 
-**Marketplace config** (`.claude-plugin/marketplace.json`): Top-level pointer to the `plugin/` subdirectory for Claude plugin marketplace registration.
+**Marketplace config** (`.claude-plugin/marketplace.json`): Top-level pointer to the `plugin/` subdirectory for Claude Code plugin marketplace registration.
 
 ## Testing
 

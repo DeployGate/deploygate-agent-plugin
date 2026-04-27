@@ -1,4 +1,4 @@
-# DeployGate Claude Plugin
+# DeployGate Claude Code Plugin
 
 DeployGate integration for Claude Code — upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).
 
