@@ -117,7 +117,7 @@ Login is browser-based via a device authorization code. The user never pastes a 
 
 **If the user doesn't have a DeployGate account:**
 
-1. Direct them to sign up: https://deploygate.com/app/register/signup
+1. Direct them to sign up: https://deploygate.com/app/register/signup?via=claude-plugin
 2. After signup, run the same `login_start` → `login_wait` flow described above.
 
 The saved token persists across future Claude Code sessions — the user does not need to log in again unless they run `logout` or the token is revoked server-side.

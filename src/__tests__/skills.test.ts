@@ -81,7 +81,9 @@ describe("skills/setup", () => {
   });
 
   it("SKILL.md contains correct signup URL", () => {
-    expect(main).toContain("https://deploygate.com/app/register/signup");
+    expect(main).toContain(
+      "https://deploygate.com/app/register/signup?via=claude-plugin",
+    );
   });
 
   it("SKILL.md contains device-auth login flow tools", () => {
