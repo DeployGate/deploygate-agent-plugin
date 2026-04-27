@@ -28,7 +28,7 @@ CI runs `npm run build && npm test` on every PR and push to main.
 
 **Tool modules** (`src/tools/*.ts`): Each file exports a `register*Tools(server, client)` function that registers MCP tools with Zod parameter schemas. Tools return `ContentBlock[]` (text content, optional `isError` flag).
 
-- `auth.ts` — `set_api_token`, `get_user_info`
+- `auth.ts` — `login_start`, `login_wait`, `logout`, `get_user_info`
 - `upload.ts` — `upload_app` (supports IPA/APK/AAB + optional iOS simulator zip)
 - `distributions.ts` — CRUD for distribution pages
 - `udids.ts` — iOS device UDID listing
@@ -57,5 +57,5 @@ Tests validate structural invariants like version consistency between `package.j
 - ESM throughout (`"type": "module"` in package.json, `.js` extensions in imports)
 - TypeScript strict mode, target ES2022, Node16 module resolution
 - The build produces both `dist/` (tsc output) and `plugin/scripts/bundle.js` (esbuild single-file bundle); the bundle is what end users run
-- Token can come from `DEPLOYGATE_API_TOKEN` env var or be set at runtime via the `set_api_token` tool
+- Authentication uses the device authorization code flow. `login_start` → user approves in browser → `login_wait` stores the token at `~/.config/deploygate/token` (0600). `logout` revokes server-side and deletes the file.
 - The `members.ts` `add_member` tool orchestrates multiple API calls (workspace → project → team) in a single tool invocation, handling "already exists" gracefully

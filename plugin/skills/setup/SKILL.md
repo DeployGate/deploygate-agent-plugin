@@ -25,21 +25,6 @@ Load these on demand when the flow reaches the matching step. Do NOT preload the
 - `references/next-steps.md` — Phase 2+ guidance (CI/CD, SDK, team expansion). Read after Phase 1 completes.
 - `references/troubleshooting.md` — troubleshooting table. Read on error.
 
-## IMPORTANT: URL Rules
-
-When directing users to get their API token, ALWAYS use this exact URL:
-
-    https://deploygate.com/settings
-
-NEVER generate, guess, or modify this URL. The following URLs are all WRONG and must not be used:
-- ~~https://deploygate.com/settings/credentials~~ — WRONG
-- ~~https://deploygate.com/settings/api~~ — WRONG
-- ~~https://deploygate.com/settings/tokens~~ — WRONG
-- ~~https://deploygate.com/settings/api-token~~ — WRONG
-- ~~https://deploygate.com/account/settings~~ — WRONG
-
-The API token is displayed directly on https://deploygate.com/settings — there is no subpath.
-
 ## Progress Display
 
 At the beginning of each step, display a progress indicator. Use ✅ for completed, ▶ for current, and ○ for upcoming. Android skips Step 5.
@@ -82,7 +67,7 @@ Before starting, detect the platform automatically, then use `AskUserQuestion` t
 2. **Use `AskUserQuestion` to ask:**
 
    - Question 1: "DeployGate のアカウントはお持ちですか？" (header: "アカウント")
-     - "はい、持っています" — API トークンを入力してセットアップを続けます
+     - "はい、持っています" — ブラウザ認証でログインしてセットアップを続けます
      - "いいえ、まだです" — アカウント作成から始めます
 
    If both platforms are detected, add a second question:
@@ -93,7 +78,7 @@ Before starting, detect the platform automatically, then use `AskUserQuestion` t
 
 ## API Identifiers (used throughout Phase 1)
 
-DeployGate has two identifier slugs you will reuse across tool calls. Both come from the `get_user_info` / `set_api_token` response. Read terminology.md first for the user-facing names; this section is just the API-side mapping.
+DeployGate has two identifier slugs you will reuse across tool calls. Both come from the `get_user_info` / `login_wait` response. Read terminology.md first for the user-facing names; this section is just the API-side mapping.
 
 Response shape (simplified):
 
@@ -122,16 +107,22 @@ If the user belongs to multiple projects (more than one entry in `groups`), ask 
 
 ### Step 1: Account Creation
 
-**If the user already has an account:** ask them to paste their API token directly in the chat (free-form — do NOT use `AskUserQuestion` for this, since it requires a long string). Remind them the token is at https://deploygate.com/settings. Skip to substep 3 below.
+Login is browser-based via a device authorization code. The user never pastes a token.
+
+**If the user already has an account:**
+
+1. Call `login_start`. It returns a URL (format: `https://deploygate.com/app/sessions/codes?code=XXXXXXXX`) and a short code. Present the URL to the user and ask them to open it in a browser where they are signed in to DeployGate, then approve the login.
+2. Call `login_wait` immediately after — it blocks until the user approves (or the code expires in 5 minutes). On success it returns workspace/project info and saves the token to `~/.config/deploygate/token` (0600).
+3. If `login_wait` returns an error (rejected, expired, nonce mismatch), call `login_start` again and retry.
 
 **If the user doesn't have a DeployGate account:**
 
 1. Direct them to sign up: https://deploygate.com/app/register/signup
-2. After signup, get the API token from https://deploygate.com/settings — do NOT modify or append anything to this URL
-3. Use the `set_api_token` tool (param name: `api_token`). This validates the token and returns user info (workspace name, projects). If the user belongs to multiple projects, ask which to use for upload
-4. If the token is invalid, `set_api_token` returns an error. Ask the user to double-check at https://deploygate.com/settings
+2. After signup, run the same `login_start` → `login_wait` flow described above.
 
-After the token is set: "For future sessions, you can set `DEPLOYGATE_API_TOKEN` in your MCP server configuration so the token is loaded automatically."
+The saved token persists across future Claude Code sessions — the user does not need to log in again unless they run `logout` or the token is revoked server-side.
+
+If `login_wait` or any later tool returns "stored token is invalid," the local token file has already been cleared; the user just needs to call `login_start` again.
 
 ### Step 2: Build and Upload
 

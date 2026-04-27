@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DeployGateClient, DeployGateApiError } from "../client.js";
-import { registerAuthTools } from "../tools/auth.js";
+import { registerAuthTools, _resetPendingLoginForTests } from "../tools/auth.js";
+import { TokenStore } from "../token-store.js";
 import { registerUploadTools } from "../tools/upload.js";
 import { registerDistributionTools } from "../tools/distributions.js";
 import { registerUdidTools } from "../tools/udids.js";
@@ -43,6 +44,9 @@ function createMockClient() {
     setToken: vi.fn(),
     hasToken: vi.fn(() => true),
     getOrganizations: vi.fn(),
+    createDeviceCode: vi.fn(),
+    pollDeviceCode: vi.fn(),
+    revokeCurrentToken: vi.fn(),
     uploadApp: vi.fn(),
     createDistribution: vi.fn(),
     listDistributions: vi.fn(),
@@ -66,68 +70,384 @@ function createMockClient() {
   } as unknown as DeployGateClient;
 }
 
+function createMockTokenStore(): TokenStore {
+  return {
+    path: vi.fn(() => "/tmp/test/deploygate/token"),
+    load: vi.fn(async () => null),
+    save: vi.fn(async () => undefined),
+    clear: vi.fn(async () => undefined),
+  } as unknown as TokenStore;
+}
+
 describe("auth tools", () => {
-  it("registers get_user_info and set_api_token tools", () => {
+  it("registers login_start, login_wait, logout, get_user_info", () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
-    registerAuthTools(server, client);
+    const tokenStore = createMockTokenStore();
+    registerAuthTools(server, client, tokenStore);
+    expect(tools.has("login_start")).toBe(true);
+    expect(tools.has("login_wait")).toBe(true);
+    expect(tools.has("logout")).toBe(true);
     expect(tools.has("get_user_info")).toBe(true);
-    expect(tools.has("set_api_token")).toBe(true);
   });
 
-  it("get_user_info calls getOrganizations and returns results", async () => {
+  it("login_start calls createDeviceCode and returns URL + code in text", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
-    const orgs = [{ name: "workspace1" }];
-    (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orgs,
-    );
-    registerAuthTools(server, client);
+    (client.createDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+      code: "ABCD1234",
+      verification_uri_complete: "https://deploygate.com/app/sessions/codes?code=ABCD1234",
+      expires_in: 300,
+      interval: 5,
+    });
+    registerAuthTools(server, client, createMockTokenStore());
 
-    const handler = tools.get("get_user_info")!.handler;
+    const handler = tools.get("login_start")!.handler;
     const result = await handler({});
-    expect(result.content[0].text).toBe(JSON.stringify(orgs, null, 2));
+
+    expect(client.createDeviceCode).toHaveBeenCalledTimes(1);
+    const [label, nonce] = (client.createDeviceCode as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(label).toBe("Claude Code DeployGate plugin");
+    expect(nonce).toMatch(/^[A-Za-z0-9_-]{32,128}$/);
+
+    const text = result.content[0].text;
+    expect(text).toContain("https://deploygate.com/app/sessions/codes?code=ABCD1234");
+    expect(text).toContain("ABCD1234");
+    expect(text).toContain("login_wait");
   });
 
-  it("set_api_token sets token and validates by calling getOrganizations", async () => {
+  it("login_start can be called twice (second call calls createDeviceCode again)", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
-    const orgs = [{ name: "my-workspace" }];
-    (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orgs,
-    );
-    registerAuthTools(server, client);
+    (client.createDeviceCode as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        code: "FIRST",
+        verification_uri_complete: "https://x/?code=FIRST",
+        expires_in: 300,
+        interval: 5,
+      })
+      .mockResolvedValueOnce({
+        code: "SECOND",
+        verification_uri_complete: "https://x/?code=SECOND",
+        expires_in: 300,
+        interval: 5,
+      });
+    registerAuthTools(server, client, createMockTokenStore(), {
+      sleep: async () => {},
+    });
+    const handler = tools.get("login_start")!.handler;
 
-    const handler = tools.get("set_api_token")!.handler;
-    const result = await handler({ api_token: "valid-token" });
-
-    expect(client.setToken).toHaveBeenCalledWith("valid-token");
-    expect(client.getOrganizations).toHaveBeenCalled();
-    expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain("API token set successfully");
-    expect(result.content[0].text).toContain("my-workspace");
+    const first = await handler({});
+    const second = await handler({});
+    expect(first.content[0].text).toContain("FIRST");
+    expect(second.content[0].text).toContain("SECOND");
+    expect(client.createDeviceCode).toHaveBeenCalledTimes(2);
   });
 
-  it("set_api_token clears token and returns error on invalid token", async () => {
-    const { server, tools } = createToolCapture();
-    const client = createMockClient();
-    (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new DeployGateApiError({
-        error: true,
-        message: "Unauthorized",
-        error_type: "unauthorized",
-      }),
-    );
-    registerAuthTools(server, client);
+  // The "overwrites a previous pending session" invariant — that a second
+  // login_start discards the first session so a subsequent login_wait uses
+  // the second nonce — is tested in Task 7 (login_wait), where we can
+  // actually drive the wait handler to inspect the pollDeviceCode args.
 
-    const handler = tools.get("set_api_token")!.handler;
-    const result = await handler({ api_token: "bad-token" });
+  describe("login_wait", () => {
+    beforeEach(() => _resetPendingLoginForTests());
 
-    expect(client.setToken).toHaveBeenCalledWith("bad-token");
-    // Clears the invalid token
-    expect(client.setToken).toHaveBeenCalledWith("");
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("invalid");
+    async function runLoginStart(
+      client: ReturnType<typeof createMockClient>,
+      tokenStore = createMockTokenStore(),
+    ) {
+      const { server, tools } = createToolCapture();
+      (client.createDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+        code: "CODE",
+        verification_uri_complete: "https://x/?code=CODE",
+        expires_in: 300,
+        interval: 5,
+      });
+      let currentTime = 1_000_000;
+      registerAuthTools(server, client, tokenStore, {
+        sleep: async () => {},
+        now: () => currentTime,
+      });
+      const startHandler = tools.get("login_start")!.handler;
+      const waitHandler = tools.get("login_wait")!.handler;
+      await startHandler({});
+      return { waitHandler, tokenStore, tools, advanceTime: (ms: number) => { currentTime += ms; } };
+    }
+
+    it("returns an error when no session is pending", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      const handler = tools.get("login_wait")!.handler;
+      const result = await handler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("login_start");
+    });
+
+    it("polls until authorized, saves token, returns user info", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ status: "pending" })
+        .mockResolvedValueOnce({ status: "pending" })
+        .mockResolvedValueOnce({
+          status: "authorized",
+          api_token: "deploygate_cacc_good",
+          user: { name: "kitakore" },
+        });
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { name: "my-workspace" },
+      ]);
+
+      const { waitHandler, tokenStore } = await runLoginStart(client);
+      const result = await waitHandler({});
+
+      expect(result.isError).toBeUndefined();
+      expect(tokenStore.save).toHaveBeenCalledWith("deploygate_cacc_good");
+      expect(client.setToken).toHaveBeenCalledWith("deploygate_cacc_good");
+      expect(result.content[0].text).toContain("kitakore");
+      expect(result.content[0].text).toContain("my-workspace");
+    });
+
+    it("returns an error on rejected and does not retry", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "rejected",
+      });
+      const { waitHandler, tokenStore } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("login_start");
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(1);
+      expect(tokenStore.save).not.toHaveBeenCalled();
+    });
+
+    it("returns an error on nonce_mismatch and does not retry", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "nonce_mismatch",
+      });
+      const { waitHandler } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text.toLowerCase()).toContain("security");
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries on rate_limited up to 3 times then fails", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ status: "rate_limited" })
+        .mockResolvedValueOnce({ status: "rate_limited" })
+        .mockResolvedValueOnce({ status: "rate_limited" });
+      const { waitHandler } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(3);
+    });
+
+    it("times out when the deadline is exceeded", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+        status: "pending",
+      });
+      const { waitHandler, advanceTime } = await runLoginStart(client);
+
+      // Each sleep() call advances virtual time past interval.
+      // Use a wrapping sleep that moves the clock forward.
+      // Replace the registered handler's sleep by re-registering with a time-advancing sleep:
+      // Simplest: push the clock past the 300s expiry immediately.
+      advanceTime(301_000);
+
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("expired");
+    });
+
+    it("clears the pending session after success (second wait fails)", async () => {
+      const client = createMockClient();
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "authorized",
+        api_token: "t",
+        user: { name: "u" },
+      });
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      const { waitHandler } = await runLoginStart(client);
+      await waitHandler({});
+      const second = await waitHandler({});
+      expect(second.isError).toBe(true);
+    });
+
+    it("a second login_start discards the first session (wait uses the newer code)", async () => {
+      const client = createMockClient();
+      (client.createDeviceCode as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          code: "FIRST",
+          verification_uri_complete: "https://x/?code=FIRST",
+          expires_in: 300,
+          interval: 5,
+        })
+        .mockResolvedValueOnce({
+          code: "SECOND",
+          verification_uri_complete: "https://x/?code=SECOND",
+          expires_in: 300,
+          interval: 5,
+        });
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+        status: "authorized",
+        api_token: "t",
+        user: { name: "u" },
+      });
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const { server, tools } = createToolCapture();
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      const startHandler = tools.get("login_start")!.handler;
+      const waitHandler = tools.get("login_wait")!.handler;
+
+      await startHandler({});
+      await startHandler({});
+      await waitHandler({});
+
+      const pollArgs = (client.pollDeviceCode as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(pollArgs[0]).toBe("SECOND");
+    });
+
+    it("tolerates up to 3 consecutive network errors, then fails", async () => {
+      const client = createMockClient();
+      const netErr = new Error("network down");
+      (client.pollDeviceCode as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(netErr)
+        .mockRejectedValueOnce(netErr)
+        .mockRejectedValueOnce(netErr);
+      const { waitHandler } = await runLoginStart(client);
+      const result = await waitHandler({});
+      expect(result.isError).toBe(true);
+      expect(client.pollDeviceCode).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("logout", () => {
+    it("is a no-op when not logged in", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(false);
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain("Already logged out");
+      expect(client.revokeCurrentToken).not.toHaveBeenCalled();
+      expect(tokenStore.clear).not.toHaveBeenCalled();
+    });
+
+    it("revokes, clears the store, clears in-memory token", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(client.revokeCurrentToken).toHaveBeenCalledTimes(1);
+      expect(tokenStore.clear).toHaveBeenCalledTimes(1);
+      expect(client.setToken).toHaveBeenCalledWith("");
+    });
+
+    it("swallows revoke 401 and still clears local state", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      (client.revokeCurrentToken as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new DeployGateApiError({
+          error: true,
+          message: "unauthorized",
+          error_type: "unauthorized",
+        }),
+      );
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(tokenStore.clear).toHaveBeenCalled();
+      expect(client.setToken).toHaveBeenCalledWith("");
+    });
+
+    it("swallows network error on revoke and still clears local state", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.hasToken as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      (client.revokeCurrentToken as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error("ENETUNREACH"),
+      );
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("logout")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(tokenStore.clear).toHaveBeenCalled();
+      expect(result.content[0].text).toContain("server-side revoke");
+    });
+  });
+
+  describe("get_user_info", () => {
+    it("returns organizations on success", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { name: "ws" },
+      ]);
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      const result = await tools.get("get_user_info")!.handler({});
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual([{ name: "ws" }]);
+    });
+
+    it("clears local token and returns an error on unauthorized", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new DeployGateApiError({
+          error: true,
+          message: "Unauthorized",
+          error_type: "unauthorized",
+        }),
+      );
+      const tokenStore = createMockTokenStore();
+      registerAuthTools(server, client, tokenStore, { sleep: async () => {} });
+
+      const result = await tools.get("get_user_info")!.handler({});
+      expect(result.isError).toBe(true);
+      expect(tokenStore.clear).toHaveBeenCalled();
+      expect(client.setToken).toHaveBeenCalledWith("");
+      expect(result.content[0].text).toContain("login_start");
+    });
+
+    it("propagates non-401 errors", async () => {
+      const { server, tools } = createToolCapture();
+      const client = createMockClient();
+      (client.getOrganizations as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new DeployGateApiError({
+          error: true,
+          message: "Server error",
+          error_type: "internal_error",
+        }),
+      );
+      registerAuthTools(server, client, createMockTokenStore(), {
+        sleep: async () => {},
+      });
+      await expect(
+        tools.get("get_user_info")!.handler({}),
+      ).rejects.toThrow("Server error");
+    });
   });
 });
 

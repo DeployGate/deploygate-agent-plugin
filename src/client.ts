@@ -40,6 +40,41 @@ export class DeployGateClient {
     return this.token !== undefined && this.token !== "";
   }
 
+  async requestRaw(
+    method: string,
+    path: string,
+    options: {
+      authenticated: boolean;
+      headers?: Record<string, string>;
+      body?: Record<string, unknown>;
+    },
+  ): Promise<{ status: number; data: unknown }> {
+    const url = `${BASE_URL}${path}`;
+    const headers: Record<string, string> = { ...(options.headers ?? {}) };
+
+    if (options.authenticated) {
+      if (!this.token) {
+        throw new Error(
+          "API token is not set. Run the `login_start` tool to obtain one.",
+        );
+      }
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    const fetchOptions: RequestInit = { method, headers };
+    if (options.body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      fetchOptions.body = JSON.stringify(options.body);
+    }
+
+    const response = await fetch(url, fetchOptions);
+    if (response.status === 204) {
+      return { status: 204, data: null };
+    }
+    const data = (await response.json()) as unknown;
+    return { status: response.status, data };
+  }
+
   private async request<T = unknown>(
     method: string,
     path: string,
@@ -50,7 +85,7 @@ export class DeployGateClient {
   ): Promise<T> {
     if (!this.token) {
       throw new Error(
-        "API token is not set. Get your token at https://deploygate.com/settings and use the set_api_token tool, or set the DEPLOYGATE_API_TOKEN environment variable.",
+        "API token is not set. Run the `login_start` tool to obtain one.",
       );
     }
     const url = `${BASE_URL}${path}`;
@@ -87,6 +122,116 @@ export class DeployGateClient {
 
   async getOrganizations(): Promise<unknown> {
     return this.request("GET", "/api/organizations");
+  }
+
+  // --- Device auth code flow ---
+
+  async createDeviceCode(
+    clientLabel: string,
+    nonce: string,
+  ): Promise<{
+    code: string;
+    verification_uri_complete: string;
+    expires_in: number;
+    interval: number;
+  }> {
+    const res = await this.requestRaw("POST", "/api/sessions/codes", {
+      authenticated: false,
+      headers: { "X-Client-Nonce": nonce },
+      body: { client_label: clientLabel },
+    });
+    const data = res.data as { error?: boolean; results?: Record<string, unknown> } | null;
+    if (!data || data.error) {
+      throw new DeployGateApiError(
+        (data as unknown as DeployGateErrorDetail) ?? {
+          error: true,
+          message: `Unexpected status ${res.status}`,
+        },
+      );
+    }
+    const r = data.results as {
+      code: string;
+      verification_uri_complete: string;
+      expires_in: number;
+      interval: number;
+    };
+    return {
+      code: r.code,
+      verification_uri_complete: r.verification_uri_complete,
+      expires_in: r.expires_in,
+      interval: r.interval,
+    };
+  }
+
+  async pollDeviceCode(
+    code: string,
+    nonce: string,
+  ): Promise<
+    | { status: "pending" }
+    | {
+        status: "authorized";
+        api_token: string;
+        user: Record<string, unknown>;
+      }
+    | { status: "rejected" }
+    | { status: "nonce_mismatch" }
+    | { status: "rate_limited" }
+  > {
+    const res = await this.requestRaw("GET", `/api/sessions/codes/${code}`, {
+      authenticated: false,
+      headers: { "X-Client-Nonce": nonce },
+    });
+
+    if (res.status === 401) return { status: "rejected" };
+    if (res.status === 429) return { status: "rate_limited" };
+    if (res.status === 400) {
+      const d = res.data as { message?: string } | null;
+      if (d?.message === "Client nonce mismatch.") {
+        return { status: "nonce_mismatch" };
+      }
+      throw new DeployGateApiError(d as DeployGateErrorDetail);
+    }
+    if (res.status < 200 || res.status >= 300) {
+      throw new DeployGateApiError(
+        (res.data as DeployGateErrorDetail) ?? {
+          error: true,
+          message: `Unexpected status ${res.status}`,
+        },
+      );
+    }
+
+    const data = res.data as { error?: boolean; results?: Record<string, unknown> };
+    if (data.error) {
+      throw new DeployGateApiError(data as unknown as DeployGateErrorDetail);
+    }
+    const r = data.results as Record<string, unknown>;
+    if (r.status === "pending") return { status: "pending" };
+    if (r.status === "authorized") {
+      return {
+        status: "authorized",
+        api_token: r.api_token as string,
+        user: r.user as Record<string, unknown>,
+      };
+    }
+    throw new DeployGateApiError({
+      error: true,
+      message: `Unexpected poll status: ${String(r.status)}`,
+    });
+  }
+
+  async revokeCurrentToken(): Promise<void> {
+    const res = await this.requestRaw("DELETE", "/api/sessions/current_token", {
+      authenticated: true,
+    });
+    if (res.status === 204) return;
+    if (res.status < 200 || res.status >= 300) {
+      throw new DeployGateApiError(
+        (res.data as DeployGateErrorDetail) ?? {
+          error: true,
+          message: `Unexpected status ${res.status}`,
+        },
+      );
+    }
   }
 
   // --- App upload ---

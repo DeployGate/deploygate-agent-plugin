@@ -15,13 +15,21 @@ Add the marketplace and install the plugin by running following commands within 
 
 After installation, run `/deploygate:setup` to start the guided onboarding flow:
 
-1. **Account creation** — sign up and set your API token via `set_api_token`
+1. **Account creation** — sign in via browser-based device authorization (`login_start` → approve in browser → `login_wait`)
 2. **App upload** — build and upload your IPA/APK/AAB
 3. **Distribution page** — create a distribution page with an install link
 4. **Notifications** — connect Slack/Teams/Chatwork
 5. **iOS device setup** — UDID registration for Ad Hoc builds (if applicable)
 
-If you already have an API token, you can set `DEPLOYGATE_API_TOKEN` as an environment variable in your MCP server configuration for automatic authentication.
+## Authentication
+
+The plugin signs you in to DeployGate via a browser-based device authorization code:
+
+1. Ask Claude to set up DeployGate. Under the hood it calls the `login_start` tool, which returns a URL and a short code.
+2. Open the URL in a browser where you are signed in to DeployGate and click approve.
+3. Claude calls `login_wait`, which returns your workspace information once you approve.
+
+The issued token is stored at `~/.config/deploygate/token` (on Windows, `%APPDATA%\deploygate\token`) with `0600` permissions and reused across Claude Code sessions. Run the `logout` tool to revoke it server-side and delete the local file.
 
 ## Skills (Slash Commands)
 
@@ -40,8 +48,10 @@ Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
 
 | Tool | Description |
 |---|---|
-| `set_api_token` | Set the API token for this session. Validates the token and returns user information. For persistent config, use the `DEPLOYGATE_API_TOKEN` environment variable. |
-| `get_user_info` | Get current user information (workspace names, projects) from the API token. |
+| `login_start` | Begin a browser-based device authorization login. Returns a URL for the user to open and approve. |
+| `login_wait` | Poll until the user approves `login_start`. On success, persists the token to `~/.config/deploygate/token` (0600). |
+| `logout` | Revoke the stored token on the server and delete the local token file. |
+| `get_user_info` | Get current user information (workspace names, projects). Auto-clears the local token on a 401 response. |
 
 ### App Upload
 
