@@ -30,7 +30,10 @@ Then enable or install the `deploygate` plugin from the configured DeployGate ma
 
 ## Getting Started
 
-After installation, run `/deploygate:setup` to start the guided onboarding flow:
+After installation, start the guided onboarding flow:
+
+- Claude Code: run `/deploygate:setup`
+- Codex: mention `$deploygate:setup`
 
 1. **Account creation** — sign in via browser-based device authorization (`login_start` → approve in browser → `login_wait`)
 2. **App upload** — build and upload your IPA/APK/AAB
@@ -48,16 +51,16 @@ The plugin signs you in to DeployGate via a browser-based device authorization c
 
 The issued token is stored at `~/.config/deploygate/token` (on Windows, `%APPDATA%\deploygate\token`) with `0600` permissions and reused across sessions. Run the `logout` tool to revoke it server-side and delete the local file.
 
-## Skills (Slash Commands)
+## Skills
 
-Skills are invoked as `/deploygate:<skill-name>` when used as a plugin.
+Claude Code invokes plugin skills as slash commands. Codex invokes plugin skills by mentioning the skill name with `$`.
 
-| Skill | Command | Description |
-|---|---|---|
-| `setup` | `/deploygate:setup` | Full onboarding flow with step-by-step progress display |
-| `deploy` | `/deploygate:deploy` | Build and upload the current project to DeployGate |
-| `ci-setup` | `/deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
-| `sdk-setup` | `/deploygate:sdk-setup` | Android SDK integration (crash reporting, screen capture). iOS SDK is currently not recommended. |
+| Skill | Claude Code | Codex | Description |
+|---|---|---|---|
+| `setup` | `/deploygate:setup` | `$deploygate:setup` | Full onboarding flow with step-by-step progress display |
+| `deploy` | `/deploygate:deploy` | `$deploygate:deploy` | Build and upload the current project to DeployGate |
+| `ci-setup` | `/deploygate:ci-setup` | `$deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
+| `sdk-setup` | `/deploygate:sdk-setup` | `$deploygate:sdk-setup` | Android SDK integration (crash reporting, screen capture). iOS SDK is currently not recommended. |
 
 ## MCP Tools
 
