@@ -1,7 +1,7 @@
 ---
 name: setup
 description: Start DeployGate onboarding — set up app distribution from first upload to team-wide deployment
-allowed-tools: mcp__deploygate__* Bash(./gradlew:*) Bash(xcodebuild:*) Bash(fastlane:*) Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(mkdir:*) Bash(cp:*) Bash(zip:*) Bash(cd:*) Bash(ls:*) Read Glob AskUserQuestion request_user_input
+allowed-tools: mcp__deploygate__* Bash(./gradlew:*) Bash(xcodebuild:*) Bash(fastlane:*) Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(mkdir:*) Bash(cp:*) Bash(zip:*) Bash(cd:*) Bash(ls:*) Read Glob AskUserQuestion
 ---
 
 ## Response Language
@@ -12,19 +12,10 @@ location below. Otherwise (English or any other language), use the
 `(en)` block. If unsure, default to `(en)`.
 
 User-facing locations are written as paired blocks marked `(en)` and
-`(ja)`. **Use only one — never both.** This applies to user-question
-tool text, progress-display labels, and any prose you quote to the user.
+`(ja)`. **Use only one — never both.** This applies to: AskUserQuestion
+text, progress-display labels, and any prose you quote to the user.
 Internal instructions, code blocks, file paths, tool names, and JSON
 examples stay English regardless of language.
-
-## User Questions
-
-At key decision points, use the host client's structured user-question tool:
-
-- Claude Code: use `AskUserQuestion`.
-- Codex: use `request_user_input` when that tool is available. If it is not available in the current mode, ask one concise plain-text question and wait for the user's answer.
-
-When this skill says `AskUserQuestion`, treat that as `request_user_input` on Codex.
 
 # DeployGate Onboarding
 
@@ -93,11 +84,11 @@ Show this every time you begin or return to a step. When Phase 1 completes, keep
 
 ## User Input Collection
 
-Use the structured user-question tool at key decision points — each section below specifies when.
+Use the `AskUserQuestion` tool at key decision points — each section below specifies when.
 
 ## Initial Assessment
 
-Before starting, detect the platform automatically, then use the structured user-question tool to confirm the user's situation:
+Before starting, detect the platform automatically, then use `AskUserQuestion` to confirm the user's situation:
 
 1. **Platform auto-detection.** Run `ls` in the project root (do NOT use `Glob` for iOS — `*.xcodeproj` and `*.xcworkspace` are macOS bundle directories and Glob will return zero matches). Inspect the output:
    - Contains `build.gradle` or `build.gradle.kts` → Android candidate
@@ -105,7 +96,7 @@ Before starting, detect the platform automatically, then use the structured user
    - If neither is visible at the root, also `ls` any likely platform subdirectories that appear in the root listing (e.g. `app-ios/`, `ios/`, `iosApp/`, `app-android/`, `android/`). KMP / Kotlin Multiplatform and many multi-module repos nest platform projects one level deep — the `.xcodeproj` is often inside `app-ios/`, the Android module inside `app-android/`
    - Both platforms detected (at root or in subdirs) → multi-platform project
 
-2. **Use the structured user-question tool to ask:**
+2. **Use `AskUserQuestion` to ask:**
 
    - Question 1 (en): "Do you have a DeployGate account?" (header: "Account")
      - "Yes, I have one" — Continue with browser-based login
@@ -212,7 +203,7 @@ git rev-parse --abbrev-ref HEAD  # branch name
 
 ### Step 3: Create Distribution Page
 
-First, use the structured user-question tool:
+First, use `AskUserQuestion`:
 
 - Question (en): "What is the purpose of this distribution page?" (header: "Distribution purpose")
   - "Development team (Development)" — A page for developers to verify the latest builds
@@ -277,7 +268,7 @@ After setup, verify by uploading a test build — a notification should arrive i
 
 > **Prerequisite:** Complete Step 4 before starting this step.
 
-Skip for Android. For iOS, use the structured user-question tool:
+Skip for Android. For iOS, use `AskUserQuestion`:
 
 - Question (en): "Do you need to install the app on testers' physical iOS devices?" (header: "Physical-device test")
   - "Yes, install on devices" — Register UDIDs and update the Provisioning Profile
@@ -307,7 +298,7 @@ If a tester's device UDID is not in the provisioning profile, they see an error 
 
 ### Phase 1 Completion Check
 
-Before declaring Phase 1 complete, use the structured user-question tool:
+Before declaring Phase 1 complete, use `AskUserQuestion`:
 
 - Question 1 (en): "Were testers able to access the app?" (header: "App check", multiSelect: false)
   - "Yes, confirmed" — Verified launch via Instant Device or installed app

@@ -6,7 +6,7 @@ If the IPA build fails (e.g. code signing issues), resolve the issue before uplo
 
 ## Step 0: Choose build method
 
-Check if fastlane is installed (`which fastlane`). Then use the structured user-question tool (`AskUserQuestion` on Claude Code, `request_user_input` on Codex):
+Check if fastlane is installed (`which fastlane`). Then use `AskUserQuestion`:
 
 - Question (en): "Which build method do you want to use for the iOS app?" (header: "Build method")
   - If fastlane is installed:
