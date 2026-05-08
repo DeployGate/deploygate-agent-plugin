@@ -163,6 +163,12 @@ describe("skills allowed-tools frontmatter", () => {
     expect(content).toMatch(/allowed-tools:.*mcp__deploygate__\*/);
   });
 
+  it("setup skill tells Codex to use request_user_input for structured questions", () => {
+    const content = loadSkill("plugin/skills/setup/SKILL.md");
+    expect(content).toContain("request_user_input");
+    expect(content).toContain("AskUserQuestion");
+  });
+
   it("deploy skill pre-approves upload_app and get_user_info", () => {
     const content = loadSkill("plugin/skills/deploy/SKILL.md");
     expect(content).toContain("mcp__deploygate__upload_app");
