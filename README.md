@@ -1,15 +1,32 @@
-# DeployGate Claude Code Plugin
+# DeployGate Agent Plugin
 
-DeployGate integration for Claude Code — upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).
+DeployGate agent integration for Claude Code and Codex: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).
 
 ## Installation
 
-Add the marketplace and install the plugin by running following commands within your Claude Code:
+This repository includes plugin metadata for both Claude Code and Codex:
 
-```
-/plugin marketplace add DeployGate/deploygate-claude-plugin
+- Claude Code: `plugin/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`
+- Codex: `plugin/.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json`
+
+### Claude Code
+
+Add the marketplace and install the plugin from within Claude Code:
+
+```text
+/plugin marketplace add DeployGate/deploygate-agent-plugin
 /plugin install deploygate@deploygate-marketplace
 ```
+
+### Codex
+
+Add the marketplace from your shell:
+
+```bash
+codex plugin marketplace add DeployGate/deploygate-agent-plugin
+```
+
+Then enable or install the `deploygate` plugin from the configured DeployGate marketplace in Codex.
 
 ## Getting Started
 
@@ -25,11 +42,11 @@ After installation, run `/deploygate:setup` to start the guided onboarding flow:
 
 The plugin signs you in to DeployGate via a browser-based device authorization code:
 
-1. Ask Claude to set up DeployGate. Under the hood it calls the `login_start` tool, which returns a URL and a short code.
+1. Ask your agent to set up DeployGate. Under the hood it calls the `login_start` tool, which returns a URL and a short code.
 2. Open the URL in a browser where you are signed in to DeployGate and click approve.
-3. Claude calls `login_wait`, which returns your workspace information once you approve.
+3. The agent calls `login_wait`, which returns your workspace information once you approve.
 
-The issued token is stored at `~/.config/deploygate/token` (on Windows, `%APPDATA%\deploygate\token`) with `0600` permissions and reused across Claude Code sessions. Run the `logout` tool to revoke it server-side and delete the local file.
+The issued token is stored at `~/.config/deploygate/token` (on Windows, `%APPDATA%\deploygate\token`) with `0600` permissions and reused across sessions. Run the `logout` tool to revoke it server-side and delete the local file.
 
 ## Skills (Slash Commands)
 

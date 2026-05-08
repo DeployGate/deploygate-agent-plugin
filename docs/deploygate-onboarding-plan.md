@@ -777,7 +777,7 @@ Ad Hocビルドでは、インストール先端末のUDIDがアプリのProvisi
 開発者側（自動通知）:
   4. DeployGateから「新しいUDIDがあります」というメールが開発者に届く
 
-開発者側（Claude Code で自動化可能な部分）:
+開発者側（エージェントクライアントで自動化可能な部分）:
   5. DeployGate API で新しいUDIDを取得
   6. Apple Developer Portal にUDIDを登録
   7. Provisioning Profileを更新
@@ -790,7 +790,7 @@ Ad Hocビルドでは、インストール先端末のUDIDがアプリのProvisi
 
 #### Claude Code / MCPツールによる自動化
 
-上記フローの 5〜9 をClaude Codeで自動化する。開発者が「新しいUDIDのメール来た」と伝えるだけで、以下を実行する。
+上記フローの 5〜9 をエージェントクライアントで自動化する。開発者が「新しいUDIDのメール来た」と伝えるだけで、以下を実行する。
 
 ```bash
 # Step 5: DeployGateから新しいUDIDを取得（is_provisioned: false のもの）
@@ -878,7 +878,7 @@ https://deploygate.com/users/{USER_NAME}/platforms/{PLATFORM}/apps/{PACKAGE_NAME
 └──────────────────┘
 ```
 
-**結論: Claude Codeプラグインとして配布する。** MCPサーバー + スキルをプラグインにパッケージ化し、`DeployGate/deploygate-claude-plugin` リポジトリで公開する。
+**結論: DeployGate Agent Pluginとして配布する。** MCPサーバー + スキルをプラグインにパッケージ化し、`DeployGate/deploygate-agent-plugin` リポジトリで公開する。
 
 理由:
 - MCPサーバーにより、Claude/Claude CodeのどちらからでもシームレスにDeployGate APIを操作できる
@@ -928,7 +928,7 @@ GitHub Actions用のワークフローテンプレートを作成。
 - [x] ワークフローテンプレートのバリデーションテスト
 
 ### Milestone 4: オンボーディングスキル ✅
-Claude Code向けのスキルファイルを作成。
+エージェントクライアント向けのスキルファイルを作成。
 
 - [x] `skills/onboarding/SKILL.md` — Phase 1〜5の全フロー
 - [x] `skills/ci-setup/SKILL.md` — CI/CD連携セットアップ
@@ -948,9 +948,9 @@ Claude Code向けのスキルファイルを作成。
 - [x] ビルド確認手順
 
 ### Milestone 6: プラグインパッケージング・公開 ✅
-Claude Codeプラグインとしてパッケージ化。
+DeployGate Agent Pluginとしてパッケージ化。
 
-- [x] プラグインリポジトリ `DeployGate/deploygate-claude-plugin` の作成
+- [x] プラグインリポジトリ `DeployGate/deploygate-agent-plugin` の作成
 - [x] `.claude-plugin/plugin.json` — プラグインメタデータ
 - [x] `.claude-plugin/marketplace.json` — マーケットプレイス定義（source: "./"）
 - [x] `.mcp.json` — `${CLAUDE_PLUGIN_ROOT}` でポータブルなパス解決
@@ -1079,10 +1079,10 @@ MCPツールに `get_notification_settings_url` のようなヘルパーを用�
 
 ### 9.1 リポジトリ構成
 
-`DeployGate/deploygate-claude-plugin` リポジトリの実際の構造:
+`DeployGate/deploygate-agent-plugin` リポジトリの実際の構造:
 
 ```
-DeployGate/deploygate-claude-plugin/
+DeployGate/deploygate-agent-plugin/
 ├── .claude-plugin/
 │   ├── plugin.json              # プラグインメタデータ
 │   └── marketplace.json         # マーケットプレイス定義
@@ -1166,14 +1166,14 @@ DeployGate/deploygate-claude-plugin/
 }
 ```
 
-> **注意:** `source` は `"."` ではなく `"./"` を指定する。Claude Codeのマーケットプレイスでは相対パスは `"./"` で始まる必要がある。
+> **注意:** `source` は `"."` ではなく `"./"` を指定する。マーケットプレイスでは相対パスは `"./"` で始まる必要がある。
 
 ### 9.4 ユーザーの導入フロー
 
 **方法1: マーケットプレイス経由（推奨）**
 ```bash
 # マーケットプレイスを追加
-/plugin marketplace add DeployGate/deploygate-claude-plugin
+/plugin marketplace add DeployGate/deploygate-agent-plugin
 
 # Discoverタブからインストール
 /plugin
@@ -1191,7 +1191,7 @@ DeployGate/deploygate-claude-plugin/
 4. 次回以降は環境変数 `DEPLOYGATE_API_TOKEN` を設定しておくと自動認証される
 
 **Anthropic公式マーケットプレイスへの掲載:**
-利用が広がった段階で、公式マーケットプレイスへの掲載を申請する。掲載されると、すべてのClaude Codeユーザーが `/plugin` のDiscoverタブから直接発見・インストールできるようになる。
+利用が広がった段階で、公式マーケットプレイスへの掲載を申請する。掲載されると、対応エージェントクライアントのユーザーがプラグインを直接発見・インストールできるようになる。
 
 ---
 

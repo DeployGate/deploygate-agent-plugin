@@ -1,0 +1,46 @@
+{
+  "name": "deploygate",
+  "version": "1.2.0",
+  "description": "DeployGate agent integration: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
+  "author": {
+    "name": "DeployGate",
+    "email": "support@deploygate.com",
+    "url": "https://deploygate.com"
+  },
+  "homepage": "https://deploygate.com",
+  "repository": "https://github.com/DeployGate/deploygate-agent-plugin",
+  "license": "MIT",
+  "keywords": [
+    "deploygate",
+    "mobile",
+    "distribution",
+    "ios",
+    "android",
+    "testing",
+    "ci-cd"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "DeployGate",
+    "shortDescription": "Upload mobile apps and manage DeployGate distribution workflows",
+    "longDescription": "Use DeployGate from coding agents to upload IPA/APK/AAB builds, create and update distribution pages, onboard testers, inspect iOS UDIDs, manage teams, and scaffold CI/CD workflows for mobile app delivery.",
+    "developerName": "DeployGate",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://deploygate.com",
+    "privacyPolicyURL": "https://deploygate.com/privacy",
+    "termsOfServiceURL": "https://deploygate.com/terms",
+    "defaultPrompt": [
+      "Set up DeployGate app distribution for this mobile project",
+      "Build this app and upload it to DeployGate",
+      "Create a DeployGate CI workflow for pull requests"
+    ],
+    "brandColor": "#00A3D8",
+    "screenshots": []
+  }
+}

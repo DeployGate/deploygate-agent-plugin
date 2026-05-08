@@ -2,7 +2,10 @@
   "mcpServers": {
     "deploygate": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/bundle.js"]
+      "args": [
+        "-e",
+        "const fs=require('node:fs');const path=require('node:path');const roots=[process.env.CODEX_PLUGIN_ROOT,process.env.CLAUDE_PLUGIN_ROOT,process.cwd(),path.join(process.cwd(),'plugin')].filter(Boolean);const entry=roots.map((root)=>path.join(root,'scripts','bundle.js')).find(fs.existsSync);if(!entry){throw new Error('DeployGate MCP bundle not found');}import(entry);"
+      ]
     }
   }
 }

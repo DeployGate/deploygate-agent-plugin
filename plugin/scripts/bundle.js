@@ -21307,7 +21307,7 @@ var TokenStore = class _TokenStore {
 
 // dist/tools/auth.js
 import { randomBytes as randomBytes2 } from "node:crypto";
-var CLIENT_LABEL = "Claude Code DeployGate plugin";
+var CLIENT_LABEL = "DeployGate Agent Plugin";
 var pendingLogin = null;
 function generateNonce() {
   return randomBytes2(48).toString("base64url");

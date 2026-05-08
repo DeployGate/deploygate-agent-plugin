@@ -1,7 +1,7 @@
 {
-  "name": "deploygate-claude-plugin",
+  "name": "deploygate-agent-plugin",
   "version": "1.2.0",
-  "description": "DeployGate integration for Claude Code — upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
+  "description": "DeployGate agent integration: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -17,6 +17,7 @@
   },
   "files": [
     "plugin/",
+    ".agents/",
     ".claude-plugin/",
     "LICENSE",
     "README.md"
@@ -40,9 +41,9 @@
     "name": "DeployGate",
     "email": "support@deploygate.com"
   },
-  "homepage": "https://github.com/DeployGate/deploygate-claude-plugin",
+  "homepage": "https://github.com/DeployGate/deploygate-agent-plugin",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DeployGate/deploygate-claude-plugin.git"
+    "url": "https://github.com/DeployGate/deploygate-agent-plugin.git"
   }
 }

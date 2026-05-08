@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides repository guidance for coding agents working in this repository.
 
 ## Project Overview
 
-DeployGate MCP (Model Context Protocol) plugin for Claude Code. Provides tools for uploading mobile apps (iOS IPA, Android APK/AAB), managing distribution pages, team members, and CI/CD setup via the DeployGate REST API.
+DeployGate MCP (Model Context Protocol) plugin for Claude Code and Codex. Provides tools for uploading mobile apps (iOS IPA, Android APK/AAB), managing distribution pages, team members, and CI/CD setup via the DeployGate REST API.
 
 The plugin runs as a stdio-based MCP server. It is bundled into a single file (`plugin/scripts/bundle.js`) via esbuild for zero-dependency distribution.
 
@@ -36,9 +36,9 @@ CI runs `npm run build && npm test` on every PR and push to main.
 - `members.ts` — multi-step member management (workspace → project → team → app)
 - `shared-teams.ts` — workspace-wide shared team management
 
-**Plugin assets** (`plugin/`): Contains the Claude Code plugin manifest (`plugin/.claude-plugin/plugin.json`), MCP server config (`.mcp.json`), skills (slash commands in `plugin/skills/`), GitHub Actions templates (`plugin/templates/`), and the bundled server script. The `plugin/` subdirectory is the published plugin root.
+**Plugin assets** (`plugin/`): Contains the Codex plugin manifest (`plugin/.codex-plugin/plugin.json`), legacy Claude plugin manifest (`plugin/.claude-plugin/plugin.json`), MCP server config (`.mcp.json`), skills (slash commands in `plugin/skills/`), GitHub Actions templates (`plugin/templates/`), and the bundled server script. The `plugin/` subdirectory is the published plugin root.
 
-**Marketplace config** (`.claude-plugin/marketplace.json`): Top-level pointer to the `plugin/` subdirectory for Claude Code plugin marketplace registration.
+**Marketplace config** (`.agents/plugins/marketplace.json`): Top-level pointer to the `plugin/` subdirectory for Codex plugin marketplace registration.
 
 ## Testing
 

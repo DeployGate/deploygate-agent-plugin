@@ -154,10 +154,10 @@ Login is browser-based via a device authorization code. The user never pastes a 
 
 **If the user doesn't have a DeployGate account:**
 
-1. Direct them to sign up: https://deploygate.com/app/register/signup?via=claude-plugin
+1. Direct them to sign up: https://deploygate.com/app/register/signup?via=deploygate-plugin
 2. After signup, run the same `login_start` → `login_wait` flow described above.
 
-The saved token persists across future Claude Code sessions — the user does not need to log in again unless they run `logout` or the token is revoked server-side.
+The saved token persists across future agent sessions — the user does not need to log in again unless they run `logout` or the token is revoked server-side.
 
 If `login_wait` or any later tool returns "stored token is invalid," the local token file has already been cleared; the user just needs to call `login_start` again.
 
@@ -294,7 +294,7 @@ When a tester installs the profile, a notification like "xxx joined 'yyy'" appea
 
 If a tester's device UDID is not in the provisioning profile, they see an error asking to contact the developer. Both Ad Hoc and Development builds use device-scoped profiles, so UDID registration applies to both. (In-House / Enterprise builds bypass this — all devices are allowed.)
 
-**Claude Code can automate the entire UDID registration process.** Read `references/ios-udid.md` for the full fastlane-based workflow (`get_udids` → `fastlane register_devices` → `fastlane sigh` → rebuild → re-upload with the same `distribution_key`).
+**Codex can automate the entire UDID registration process.** Read `references/ios-udid.md` for the full fastlane-based workflow (`get_udids` → `fastlane register_devices` → `fastlane sigh` → rebuild → re-upload with the same `distribution_key`).
 
 ### Phase 1 Completion Check
 

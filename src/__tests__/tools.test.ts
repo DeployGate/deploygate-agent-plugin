@@ -107,7 +107,7 @@ describe("auth tools", () => {
 
     expect(client.createDeviceCode).toHaveBeenCalledTimes(1);
     const [label, nonce] = (client.createDeviceCode as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(label).toBe("Claude Code DeployGate plugin");
+    expect(label).toBe("DeployGate Agent Plugin");
     expect(nonce).toMatch(/^[A-Za-z0-9_-]{32,128}$/);
 
     const text = result.content[0].text;

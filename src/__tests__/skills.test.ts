@@ -82,7 +82,7 @@ describe("skills/setup", () => {
 
   it("SKILL.md contains correct signup URL", () => {
     expect(main).toContain(
-      "https://deploygate.com/app/register/signup?via=claude-plugin",
+      "https://deploygate.com/app/register/signup?via=deploygate-plugin",
     );
   });
 

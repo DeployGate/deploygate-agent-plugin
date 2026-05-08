@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DeployGateApiError, DeployGateClient } from "../client.js";
 import { TokenStore } from "../token-store.js";
 
-const CLIENT_LABEL = "Claude Code DeployGate plugin";
+const CLIENT_LABEL = "DeployGate Agent Plugin";
 
 interface PendingLogin {
   nonce: string;

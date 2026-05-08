@@ -2,7 +2,7 @@
 
 If a tester's device UDID is not in the provisioning profile, they'll see an error message asking to contact the developer.
 
-**Claude Code can automate the entire UDID registration process.** When the user says "add UDIDs" or "a tester can't install", execute the following steps automatically.
+**Codex can automate the entire UDID registration process.** When the user says "add UDIDs" or "a tester can't install", execute the following steps automatically.
 
 > Steps 2-3 use fastlane for Apple Developer Portal interaction. If fastlane was not installed in Step 2, install it now (`brew install fastlane`).
 

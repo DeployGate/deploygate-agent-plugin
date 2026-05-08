@@ -9,8 +9,8 @@ function loadJson(relativePath: string): Record<string, unknown> {
   return JSON.parse(content) as Record<string, unknown>;
 }
 
-describe("plugin/.claude-plugin/plugin.json", () => {
-  const plugin = loadJson("plugin/.claude-plugin/plugin.json");
+describe("plugin/.codex-plugin/plugin.json", () => {
+  const plugin = loadJson("plugin/.codex-plugin/plugin.json");
 
   it("is valid JSON with required fields", () => {
     expect(plugin.name).toBe("deploygate");
@@ -19,6 +19,7 @@ describe("plugin/.claude-plugin/plugin.json", () => {
     expect(plugin.author).toBeDefined();
     expect(plugin.skills).toBeDefined();
     expect(plugin.mcpServers).toBeDefined();
+    expect(plugin.interface).toBeDefined();
   });
 
   it("has valid semver version", () => {
@@ -29,6 +30,7 @@ describe("plugin/.claude-plugin/plugin.json", () => {
     const author = plugin.author as Record<string, string>;
     expect(author.name).toBeDefined();
     expect(author.email).toBeDefined();
+    expect(author.url).toBeDefined();
   });
 
   it("skills path points to an existing directory", () => {
@@ -46,6 +48,18 @@ describe("plugin/.claude-plugin/plugin.json", () => {
     expect(plugin.license).toBe("MIT");
   });
 
+  it("has Codex interface metadata", () => {
+    const iface = plugin.interface as Record<string, unknown>;
+    expect(iface.displayName).toBe("DeployGate");
+    expect(iface.shortDescription).toBeDefined();
+    expect(iface.longDescription).toBeDefined();
+    expect(iface.developerName).toBe("DeployGate");
+    expect(iface.category).toBe("Coding");
+    expect(iface.websiteURL).toBeDefined();
+    expect(iface.privacyPolicyURL).toBeDefined();
+    expect(iface.termsOfServiceURL).toBeDefined();
+  });
+
   it("has keywords array", () => {
     const keywords = plugin.keywords as string[];
     expect(Array.isArray(keywords)).toBe(true);
@@ -54,32 +68,55 @@ describe("plugin/.claude-plugin/plugin.json", () => {
   });
 });
 
+describe("plugin/.claude-plugin/plugin.json", () => {
+  const plugin = loadJson("plugin/.claude-plugin/plugin.json");
+
+  it("keeps the legacy Claude Code manifest for dual-client support", () => {
+    expect(plugin.name).toBe("deploygate");
+    expect(plugin.version).toBeDefined();
+    expect(plugin.skills).toBe("./skills/");
+    expect(plugin.mcpServers).toBe("./.mcp.json");
+  });
+});
+
 describe(".claude-plugin/marketplace.json", () => {
   const marketplace = loadJson(".claude-plugin/marketplace.json");
 
+  it("keeps the Claude Code marketplace entry for dual-client support", () => {
+    const plugins = marketplace.plugins as Array<Record<string, unknown>>;
+    expect(marketplace.name).toBe("deploygate-marketplace");
+    expect(plugins[0].name).toBe("deploygate");
+    expect(plugins[0].source).toBe("./plugin");
+  });
+});
+
+describe(".agents/plugins/marketplace.json", () => {
+  const marketplace = loadJson(".agents/plugins/marketplace.json");
+
   it("is valid JSON with required fields", () => {
     expect(marketplace.name).toBeDefined();
-    expect(marketplace.owner).toBeDefined();
+    expect(marketplace.interface).toBeDefined();
     expect(marketplace.plugins).toBeDefined();
   });
 
-  it("has owner with name and email", () => {
-    const owner = marketplace.owner as Record<string, string>;
-    expect(owner.name).toBeDefined();
-    expect(owner.email).toBeDefined();
-  });
-
-  it("has plugins array with source './plugin'", () => {
+  it("has plugins array with local source './plugin'", () => {
     const plugins = marketplace.plugins as Array<Record<string, unknown>>;
     expect(Array.isArray(plugins)).toBe(true);
     expect(plugins.length).toBeGreaterThan(0);
-    expect(plugins[0].source).toBe("./plugin");
+    expect(plugins[0].name).toBe("deploygate");
+    expect(plugins[0].source).toEqual({
+      source: "local",
+      path: "./plugin",
+    });
   });
 
-  it("plugin version matches plugin.json version", () => {
-    const plugin = loadJson("plugin/.claude-plugin/plugin.json");
+  it("has Codex installation policy and category", () => {
     const plugins = marketplace.plugins as Array<Record<string, unknown>>;
-    expect(plugins[0].version).toBe(plugin.version);
+    expect(plugins[0].policy).toEqual({
+      installation: "AVAILABLE",
+      authentication: "ON_INSTALL",
+    });
+    expect(plugins[0].category).toBe("Coding");
   });
 });
 
@@ -96,7 +133,7 @@ describe("plugin/.mcp.json", () => {
     expect(servers.deploygate).toBeDefined();
   });
 
-  it("uses ${CLAUDE_PLUGIN_ROOT} for entry point path", () => {
+  it("uses a Codex-compatible portable entry point resolver", () => {
     const servers = mcp.mcpServers as Record<
       string,
       Record<string, unknown>
@@ -104,8 +141,12 @@ describe("plugin/.mcp.json", () => {
     const dg = servers.deploygate;
     expect(dg.command).toBe("node");
     const args = dg.args as string[];
-    expect(args).toHaveLength(1);
-    expect(args[0]).toBe("${CLAUDE_PLUGIN_ROOT}/scripts/bundle.js");
+    expect(args).toHaveLength(2);
+    expect(args[0]).toBe("-e");
+    expect(args[1]).toContain("CODEX_PLUGIN_ROOT");
+    expect(args[1]).toContain("CLAUDE_PLUGIN_ROOT");
+    expect(args[1]).toContain("scripts");
+    expect(args[1]).toContain("bundle.js");
   });
 
   it("does not pass DEPLOYGATE_API_TOKEN through env", () => {
