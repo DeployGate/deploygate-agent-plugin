@@ -147,6 +147,7 @@ describe("plugin/.mcp.json", () => {
     expect(args[1]).toContain("CLAUDE_PLUGIN_ROOT");
     expect(args[1]).toContain("scripts");
     expect(args[1]).toContain("bundle.js");
+    expect(dg.cwd).toBe(".");
   });
 
   it("does not pass DEPLOYGATE_API_TOKEN through env", () => {
