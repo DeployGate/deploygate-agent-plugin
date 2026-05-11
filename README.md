@@ -59,7 +59,7 @@ Claude Code invokes plugin skills as slash commands. Codex invokes plugin skills
 |---|---|---|---|
 | `setup` | `/deploygate:setup` | `$deploygate:setup` | Full onboarding flow with step-by-step progress display |
 | `deploy` | `/deploygate:deploy` | `$deploygate:deploy` | Build and upload the current project to DeployGate |
-| `ci-setup` | `/deploygate:ci-setup` | `$deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI |
+| `ci-setup` | `/deploygate:ci-setup` | `$deploygate:ci-setup` | CI/CD integration — GitHub Actions, Bitrise, CircleCI (see [external CI guide](docs/external-ci-integration.md)) |
 | `sdk-setup` | `/deploygate:sdk-setup` | `$deploygate:sdk-setup` | Android SDK integration (crash reporting, screen capture). iOS SDK is currently not recommended. |
 
 ## MCP Tools
