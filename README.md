@@ -150,6 +150,14 @@ npm run build      # Compile TypeScript + bundle with esbuild
 npm test           # Run tests
 ```
 
+## Support & Project Status
+
+This plugin is open-source software provided **as-is on a best-effort
+basis**. See [SUPPORT.md](./SUPPORT.md) for where to get help and what
+to expect, and [CONTRIBUTING.md](./CONTRIBUTING.md) for how to
+contribute. All participation in this repository is governed by our
+[Code of Conduct](./CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT — DeployGate Inc.

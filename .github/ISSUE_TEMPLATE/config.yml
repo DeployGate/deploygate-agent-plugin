@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: DeployGate Service Support
+    url: https://intercom.help/deploygate
+    about: >
+      Questions about the DeployGate service itself — accounts, billing,
+      web app behavior, API access — belong here, not on this repository.
+  - name: DeployGate Documentation & FAQ
+    url: https://docs.deploygate.com
+    about: >
+      Please check the official documentation and FAQ before opening an issue.

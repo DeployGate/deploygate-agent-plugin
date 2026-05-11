@@ -1,0 +1,55 @@
+name: Feature request
+description: Propose a new feature or enhancement for this plugin.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea.
+
+        **This tracker is for proposals about this plugin only.** Requests
+        about the DeployGate service itself should go to
+        https://intercom.help/deploygate instead.
+
+        This project is open-source software provided as-is on a best-effort
+        basis. Feature requests are reviewed when maintainers have time and
+        are not guaranteed to be implemented. See [SUPPORT.md](../blob/main/SUPPORT.md).
+  - type: checkboxes
+    id: pre-submission
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have searched existing issues and discussions and confirmed this is not a duplicate.
+          required: true
+        - label: I understand this project is provided as-is on a best-effort basis and feature requests are not guaranteed to be implemented.
+          required: true
+        - label: I have read and agree to the [Code of Conduct](../blob/main/CODE_OF_CONDUCT.md).
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Use case
+      description: What are you trying to do, and why is the current behavior insufficient?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should this plugin behave to solve the problem above?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you have considered, and why they are not sufficient.
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+    validations:
+      required: false

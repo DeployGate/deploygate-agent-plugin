@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a defect in the DeployGate Agent Plugin.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        **This tracker is for bugs in this plugin only.** Questions about the
+        DeployGate service itself (accounts, billing, web app behavior, API
+        access) should go to https://intercom.help/deploygate instead.
+
+        This project is open-source software provided as-is on a best-effort
+        basis. See [SUPPORT.md](../blob/main/SUPPORT.md) for details.
+  - type: checkboxes
+    id: pre-submission
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate.
+          required: true
+        - label: This is a bug in this plugin, not a question about the DeployGate service.
+          required: true
+        - label: I have read and agree to the [Code of Conduct](../blob/main/CODE_OF_CONDUCT.md).
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A one-line description of the bug.
+      placeholder: "upload_app fails with X when the AAB is larger than Y"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Please include all of the following:
+        - Plugin version (from `plugin/.codex-plugin/plugin.json` or `plugin/.claude-plugin/plugin.json`)
+        - Agent and version (Claude Code or Codex, with version)
+        - Node.js version (`node --version`)
+        - Operating system and version
+      placeholder: |
+        - Plugin version: 1.2.3
+        - Agent: Claude Code 1.0.0
+        - Node.js: v20.11.0
+        - OS: macOS 14.4
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps that reliably reproduce the problem.
+      placeholder: |
+        1. Run `/deploygate:setup`
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: |
+        Include error messages, stack traces, or relevant logs.
+        **Please redact any access tokens or other secrets before posting.**
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, related issues, or anything else that may help.
+    validations:
+      required: false

@@ -1,0 +1,45 @@
+name: Documentation issue
+description: Report an error, omission, or unclear wording in this repository's documentation.
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template only for documentation in **this repository** —
+        for example, `README.md`, files under `docs/`, skill descriptions,
+        or workflow templates.
+
+        Problems with the DeployGate service documentation should be raised
+        at https://docs.deploygate.com or via
+        https://intercom.help/deploygate.
+  - type: checkboxes
+    id: pre-submission
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: This is about documentation in this repository, not the DeployGate service documentation.
+          required: true
+        - label: I have read and agree to the [Code of Conduct](../blob/main/CODE_OF_CONDUCT.md).
+          required: true
+  - type: input
+    id: location
+    attributes:
+      label: Affected location
+      description: File path within this repository, or URL to the rendered page.
+      placeholder: "README.md, plugin/skills/setup/SKILL.md, docs/external-ci-integration.md"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested correction
+      description: Optional. A wording you would propose, if you have one.
+    validations:
+      required: false
