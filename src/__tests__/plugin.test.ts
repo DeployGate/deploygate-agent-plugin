@@ -56,8 +56,9 @@ describe("plugin/.codex-plugin/plugin.json", () => {
     expect(iface.developerName).toBe("DeployGate");
     expect(iface.category).toBe("Coding");
     expect(iface.websiteURL).toBeDefined();
-    expect(iface.privacyPolicyURL).toBeDefined();
-    expect(iface.termsOfServiceURL).toBeDefined();
+    expect(iface.privacyPolicyURL).toBe("https://deploygate.com/terms/privacy");
+    expect(iface.termsOfServiceURL).toBe("https://deploygate.com/terms");
+    expect(iface.brandColor).toBe("#19B368");
   });
 
   it("has keywords array", () => {

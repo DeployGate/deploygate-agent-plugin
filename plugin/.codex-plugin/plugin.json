@@ -33,14 +33,14 @@
       "Write"
     ],
     "websiteURL": "https://deploygate.com",
-    "privacyPolicyURL": "https://deploygate.com/privacy",
+    "privacyPolicyURL": "https://deploygate.com/terms/privacy",
     "termsOfServiceURL": "https://deploygate.com/terms",
     "defaultPrompt": [
       "Set up DeployGate app distribution for this mobile project",
       "Build this app and upload it to DeployGate",
       "Create a DeployGate CI workflow for pull requests"
     ],
-    "brandColor": "#00A3D8",
+    "brandColor": "#19B368",
     "screenshots": []
   }
 }
