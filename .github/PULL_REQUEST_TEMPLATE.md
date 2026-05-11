@@ -35,4 +35,4 @@ Closes #
 ## Checklist
 
 - [ ] I have updated the plugin version in `plugin/.codex-plugin/plugin.json` and `plugin/.claude-plugin/plugin.json` if applicable
-- [ ] I have read and agree to the [Code of Conduct](../CODE_OF_CONDUCT.md)
+- [ ] I have read and agree to the [Code of Conduct](https://github.com/DeployGate/deploygate-agent-plugin/blob/main/CODE_OF_CONDUCT.md)
