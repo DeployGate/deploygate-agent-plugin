@@ -21799,7 +21799,7 @@ var stored = await tokenStore.load();
 var client = new DeployGateClient(stored?.token);
 var server = new McpServer({
   name: "deploygate",
-  version: "1.2.0"
+  version: "1.3.0"
 });
 registerAuthTools(server, client, tokenStore);
 registerUploadTools(server, client);
