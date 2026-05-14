@@ -150,6 +150,37 @@ npm run build      # Compile TypeScript + bundle with esbuild
 npm test           # Run tests
 ```
 
+## Releasing
+
+Releases are automated by [release-please](https://github.com/googleapis/release-please).
+
+### Branching and commits
+
+- All work lands on `main` via squash-merged pull requests.
+- PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/):
+  - `feat: …` → minor version bump
+  - `fix: …` → patch version bump
+  - `feat!: …` or a body containing `BREAKING CHANGE: …` → major version bump
+  - `chore:`, `docs:`, `refactor:`, `test:`, `build:`, `ci:` → no version bump (and, by default, do not appear in the changelog unless `changelog-sections` is configured in `.release-please-config.json`)
+- Individual commits inside a PR can have any title; only the squash-merge title matters.
+
+### How a release happens
+
+1. Merge a `feat:` or `fix:` PR into `main`.
+2. The `Release` workflow opens (or updates) a Release PR that bumps the version in `package.json`, both `plugin/.claude-plugin/plugin.json` and `plugin/.codex-plugin/plugin.json`, the `deploygate` entry in `.claude-plugin/marketplace.json`, and `.release-please-manifest.json`, and appends to `CHANGELOG.md`.
+3. Merge the Release PR.
+4. The `Release` workflow runs again, creates the git tag `deploygate--vX.Y.Z`, and publishes a GitHub Release.
+
+### Installing a specific version
+
+End users can pin to a tag with:
+
+```
+/plugin install DeployGate/deploygate-agent-plugin@deploygate--v1.4.0
+```
+
+Without a pin, `claude plugin install` follows `main`. Users can fetch the latest published tag with `claude plugin update deploygate`.
+
 ## Support & Project Status
 
 This plugin is open-source software provided **as-is on a best-effort

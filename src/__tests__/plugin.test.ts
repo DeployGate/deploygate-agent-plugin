@@ -187,3 +187,22 @@ describe("plugin/skills/ (slash commands)", () => {
     expect(content).toContain("upload_app");
   });
 });
+
+describe("version sync across release manifests", () => {
+  it("package.json, both plugin.json files, the marketplace entry, and the release-please manifest share the same version", () => {
+    const pkg = loadJson("package.json");
+    const codexPlugin = loadJson("plugin/.codex-plugin/plugin.json");
+    const claudePlugin = loadJson("plugin/.claude-plugin/plugin.json");
+    const marketplace = loadJson(".claude-plugin/marketplace.json");
+    const manifest = loadJson(".release-please-manifest.json");
+
+    const version = pkg.version as string;
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(codexPlugin.version).toBe(version);
+    expect(claudePlugin.version).toBe(version);
+    const plugins = marketplace.plugins as Array<{ name: string; version: string }>;
+    const deploygateEntry = plugins.find((p) => p.name === "deploygate");
+    expect(deploygateEntry?.version).toBe(version);
+    expect(manifest["."]).toBe(version);
+  });
+});
