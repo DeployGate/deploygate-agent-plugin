@@ -167,7 +167,7 @@ Releases are automated by [release-please](https://github.com/googleapis/release
 ### How a release happens
 
 1. Merge a `feat:` or `fix:` PR into `main`.
-2. The `Release` workflow opens (or updates) a Release PR that bumps the version in `package.json`, both `plugin/.claude-plugin/plugin.json` and `plugin/.codex-plugin/plugin.json`, and `.release-please-manifest.json`, and appends to `CHANGELOG.md`.
+2. The `Release` workflow opens (or updates) a Release PR that bumps the version in `package.json`, both `plugin/.claude-plugin/plugin.json` and `plugin/.codex-plugin/plugin.json`, the `deploygate` entry in `.claude-plugin/marketplace.json`, and `.release-please-manifest.json`, and appends to `CHANGELOG.md`.
 3. Merge the Release PR.
 4. The `Release` workflow runs again, creates the git tag `deploygate--vX.Y.Z`, and publishes a GitHub Release.
 
