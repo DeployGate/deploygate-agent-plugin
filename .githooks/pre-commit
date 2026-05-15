@@ -1,0 +1,7 @@
+#!/bin/sh
+if git diff --cached --name-only | grep -qx 'plugin/scripts/bundle.js'; then
+  echo "Error: plugin/scripts/bundle.js should not be committed manually."
+  echo "It is regenerated automatically by the release workflow."
+  echo "Run 'git reset HEAD plugin/scripts/bundle.js' to unstage it."
+  exit 1
+fi
