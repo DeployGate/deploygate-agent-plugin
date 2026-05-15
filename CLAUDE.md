@@ -11,14 +11,15 @@ The plugin runs as a stdio-based MCP server. It is bundled into a single file (`
 ## Commands
 
 ```bash
-npm run build        # TypeScript compile + esbuild bundle to plugin/scripts/bundle.js
+npm run build        # TypeScript compile only (does not touch plugin/scripts/bundle.js)
+npm run bundle       # tsc + esbuild bundle to plugin/scripts/bundle.js (release workflow only)
 npm test             # Run all tests (vitest)
 npm run test:watch   # Run tests in watch mode
-npm run dev          # TypeScript watch mode (no esbuild)
+npm run dev          # TypeScript watch mode
 npm start            # Run the MCP server directly
 ```
 
-CI runs `npm run build && npm test` on every PR and push to main.
+CI runs `npm run build && npm test` on every PR and push to main. `plugin/scripts/bundle.js` is regenerated and committed automatically by the release-please workflow when it opens/updates a release PR — do not run `npm run bundle` and commit the result manually. A pre-commit hook in `.githooks/` (installed by `npm install` via `prepare`) blocks accidental commits of the bundle.
 
 ## Architecture
 

@@ -145,10 +145,31 @@ Pre-built workflow templates in `plugin/templates/`:
 ## Development
 
 ```bash
-npm install        # Install dependencies
-npm run build      # Compile TypeScript + bundle with esbuild
+npm install        # Install dependencies (also installs the pre-commit hook)
+npm run build      # Compile TypeScript (does not touch plugin/scripts/bundle.js)
 npm test           # Run tests
+npm start          # Run the MCP server from dist/index.js (no bundle needed)
+npm run bundle     # Regenerate plugin/scripts/bundle.js for plugin-level testing
 ```
+
+`plugin/scripts/bundle.js` is the single-file build that end users execute when the plugin is loaded by Codex / Claude Code. For day-to-day iteration (unit tests, running the server via `npm start`) you do not need to touch it. When you want to verify the plugin end-to-end through the Codex / Claude Code plugin loader, run `npm run bundle` to refresh it locally — but do **not** commit the result. The release-please workflow regenerates and commits the bundle automatically when it opens or updates a release PR, and a pre-commit hook in `.githooks/` (installed via the `prepare` script) blocks accidental commits.
+
+### Verifying changes in Claude Code
+
+1. Register your local checkout as a marketplace and install the plugin (once):
+
+   ```text
+   /plugin marketplace add /path/to/deploygate-agent-plugin
+   /plugin install deploygate@<marketplace-name>
+   ```
+
+2. Iterate:
+
+   1. Edit source under `src/`.
+   2. Run `npm run bundle` to regenerate `plugin/scripts/bundle.js`.
+   3. Restart your Claude Code session (`/exit` and relaunch, or `/restart`). The MCP server is spawned as a subprocess at session start, so a fresh session picks up the new bundle automatically — no `plugin reinstall` is needed.
+
+3. `plugin reinstall` is only required when you change `plugin/.claude-plugin/plugin.json`, `.agents/plugins/marketplace.json`, or add/remove skills under `plugin/skills/`.
 
 ## Releasing
 
