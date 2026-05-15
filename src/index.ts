@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DeployGateClient } from "./client.js";
 import { TokenStore } from "./token-store.js";
+import { VERSION } from "./version.js";
 import { registerAuthTools } from "./tools/auth.js";
 import { registerUploadTools } from "./tools/upload.js";
 import { registerDistributionTools } from "./tools/distributions.js";
@@ -18,7 +19,7 @@ const client = new DeployGateClient(stored?.token);
 
 const server = new McpServer({
   name: "deploygate",
-  version: "1.3.0",
+  version: VERSION,
 });
 
 registerAuthTools(server, client, tokenStore);
