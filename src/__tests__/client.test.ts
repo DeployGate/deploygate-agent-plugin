@@ -75,6 +75,18 @@ describe("DeployGateClient", () => {
       expect(options.headers.Authorization).toBe("Bearer test-token");
     });
 
+    it("sends User-Agent header identifying the plugin", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: [] }),
+      );
+      await client.getOrganizations();
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers["User-Agent"]).toMatch(
+        /^deploygate-agent-plugin\/(\d+\.\d+\.\d+|dev)$/,
+      );
+    });
+
     it("throws DeployGateApiError on error response", async () => {
       mockFetch.mockResolvedValueOnce(
         mockResponse({
@@ -141,6 +153,17 @@ describe("DeployGateClient", () => {
       });
       const [, options] = mockFetch.mock.calls[0];
       expect(options.headers.Authorization).toBeUndefined();
+    });
+
+    it("sends User-Agent header even on unauthenticated requests", async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: false, results: {} }),
+      );
+      await client.requestRaw("GET", "/api/x", { authenticated: false });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers["User-Agent"]).toMatch(
+        /^deploygate-agent-plugin\/(\d+\.\d+\.\d+|dev)$/,
+      );
     });
 
     it("sends extra headers", async () => {

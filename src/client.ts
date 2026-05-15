@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { VERSION } from "./version.js";
 
 const BASE_URL = "https://deploygate.com";
+const USER_AGENT = `deploygate-agent-plugin/${VERSION}`;
 
 export interface DeployGateErrorDetail {
   error: true;
@@ -50,7 +52,10 @@ export class DeployGateClient {
     },
   ): Promise<{ status: number; data: unknown }> {
     const url = `${BASE_URL}${path}`;
-    const headers: Record<string, string> = { ...(options.headers ?? {}) };
+    const headers: Record<string, string> = {
+      "User-Agent": USER_AGENT,
+      ...(options.headers ?? {}),
+    };
 
     if (options.authenticated) {
       if (!this.token) {
@@ -90,6 +95,7 @@ export class DeployGateClient {
     }
     const url = `${BASE_URL}${path}`;
     const headers: Record<string, string> = {
+      "User-Agent": USER_AGENT,
       Authorization: `Bearer ${this.token}`,
     };
 
