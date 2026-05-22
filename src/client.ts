@@ -132,6 +132,10 @@ export class DeployGateClient {
     return this.request("GET", "/api/organizations");
   }
 
+  async getUser(id: string): Promise<unknown> {
+    return this.request("GET", `/api/users/${id}`);
+  }
+
   // --- Device auth code flow ---
 
   async createDeviceCode(
