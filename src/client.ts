@@ -365,6 +365,38 @@ export class DeployGateClient {
     );
   }
 
+  // --- App members ---
+
+  async listAppMembers(
+    owner: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request("GET", `${this.appBase(owner, platform, appId)}/members`);
+  }
+
+  async inviteAppMembers(
+    owner: string,
+    platform: string,
+    appId: string,
+    params: { users: string; role?: number },
+  ): Promise<unknown> {
+    return this.request("POST", `${this.appBase(owner, platform, appId)}/members`, {
+      body: params as Record<string, unknown>,
+    });
+  }
+
+  async removeAppMembers(
+    owner: string,
+    platform: string,
+    appId: string,
+    users: string,
+  ): Promise<unknown> {
+    return this.request("DELETE", `${this.appBase(owner, platform, appId)}/members`, {
+      body: { users },
+    });
+  }
+
   // --- App upload ---
 
   async uploadApp(

@@ -10,6 +10,7 @@ import { registerNotificationTools } from "../tools/notifications.js";
 import { registerMemberTools } from "../tools/members.js";
 import { registerSharedTeamTools } from "../tools/shared-teams.js";
 import { registerAppTools } from "../tools/apps.js";
+import { registerAppMemberTools } from "../tools/app-members.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -68,6 +69,9 @@ function createMockClient() {
     listSharedTeamMembers: vi.fn(),
     removeSharedTeamMember: vi.fn(),
     assignSharedTeamToApp: vi.fn(),
+    listAppMembers: vi.fn(async () => ({})),
+    inviteAppMembers: vi.fn(async () => ({})),
+    removeAppMembers: vi.fn(async () => ({})),
     getApp: vi.fn(async () => ({})),
     listAppRevisions: vi.fn(async () => ([])),
     getAppRevision: vi.fn(async () => ({})),
@@ -821,6 +825,16 @@ describe("registerAppTools", () => {
       "unprotect_app_revision",
       "search_app_revisions",
     ]) {
+      expect(tools.has(name)).toBe(true);
+    }
+  });
+});
+
+describe("registerAppMemberTools", () => {
+  it("registers app member tools", () => {
+    const { server, tools } = createToolCapture();
+    registerAppMemberTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of ["list_app_members", "invite_app_members", "remove_app_members"]) {
       expect(tools.has(name)).toBe(true);
     }
   });

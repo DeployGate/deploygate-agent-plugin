@@ -741,6 +741,45 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("app members", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listAppMembers GETs the members path", async () => {
+      await client.listAppMembers("alice", "android", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/members",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("inviteAppMembers POSTs users and role", async () => {
+      await client.inviteAppMembers("alice", "android", "com.example.app", {
+        users: "bob@example.com,carol",
+        role: 1,
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/members",
+      );
+      expect(options.method).toBe("POST");
+      expect(options.body).toContain("role=1");
+      expect(options.body).toContain("users=bob%40example.com%2Ccarol");
+    });
+
+    it("removeAppMembers DELETEs with users body", async () => {
+      await client.removeAppMembers("alice", "android", "com.example.app", "bob");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/members",
+      );
+      expect(options.method).toBe("DELETE");
+      expect(options.body).toContain("users=bob");
+    });
+  });
+
   describe("shared teams", () => {
     it("creates a shared team", async () => {
       mockFetch.mockResolvedValueOnce(
