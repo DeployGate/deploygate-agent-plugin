@@ -727,6 +727,18 @@ describe("DeployGateClient", () => {
       expect(options.method).toBe("GET");
       expect(options.headers["X-DEPLOYGATE-API-VERSION"]).toBe("2");
     });
+
+    it("searchAppRevisions encodes paging params", async () => {
+      await client.searchAppRevisions("alice", "android", "com.example.app", {
+        q: "v1",
+        page: 2,
+        perPage: 25,
+      });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/search?q=v1&paging%5Bpage%5D=2&paging%5Bper_page%5D=25",
+      );
+    });
   });
 
   describe("shared teams", () => {

@@ -257,6 +257,8 @@ export class DeployGateClient {
     const params = new URLSearchParams();
     if (options?.revision !== undefined)
       params.set("revision", String(options.revision));
+    // `key` (app secret) is supported for completeness but not exposed as a tool
+    // param — it is redundant under Bearer-token auth.
     if (options?.key !== undefined) params.set("key", options.key);
     const qs = params.toString();
     return this.request(
