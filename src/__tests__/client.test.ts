@@ -780,6 +780,42 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("distribution extensions", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("deleteDistributionByName DELETEs with distribution_name query", async () => {
+      await client.deleteDistributionByName("alice", "android", "com.example.app", "QA build");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/distributions?distribution_name=QA+build",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("updateDistributionRevision POSTs revision to packages", async () => {
+      await client.updateDistributionRevision("abcdef", { revision: 12, release_note: "hot" });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/distributions/abcdef/packages");
+      expect(options.method).toBe("POST");
+      expect(options.body).toContain("revision=12");
+      expect(options.body).toContain("release_note=hot");
+    });
+
+    it("updateDistribution forwards ip_restriction params", async () => {
+      await client.updateDistribution("abcdef", {
+        active: true,
+        release_scope: "unlisted",
+        ip_restriction_enable: true,
+        ip_restriction: "10.0.0.0/24",
+      });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toContain("ip_restriction_enable=true");
+      expect(options.body).toContain("ip_restriction=10.0.0.0%2F24");
+    });
+  });
+
   describe("shared teams", () => {
     it("creates a shared team", async () => {
       mockFetch.mockResolvedValueOnce(

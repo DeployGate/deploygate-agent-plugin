@@ -55,6 +55,8 @@ function createMockClient() {
     getDistribution: vi.fn(),
     updateDistribution: vi.fn(),
     deleteDistribution: vi.fn(),
+    deleteDistributionByName: vi.fn(async () => ({})),
+    updateDistributionRevision: vi.fn(async () => ({})),
     getUdids: vi.fn(),
     addWorkspaceMember: vi.fn(),
     addProjectMember: vi.fn(),
@@ -481,6 +483,15 @@ describe("distribution tools", () => {
     expect(tools.has("get_distribution")).toBe(true);
     expect(tools.has("update_distribution")).toBe(true);
     expect(tools.has("delete_distribution")).toBe(true);
+  });
+});
+
+describe("registerDistributionTools extensions", () => {
+  it("registers delete-by-name and revision update tools", () => {
+    const { server, tools } = createToolCapture();
+    registerDistributionTools(server, createMockClient() as unknown as DeployGateClient);
+    expect(tools.has("delete_distribution_by_name")).toBe(true);
+    expect(tools.has("update_distribution_revision")).toBe(true);
   });
 });
 

@@ -479,6 +479,8 @@ export class DeployGateClient {
       release_scope: string;
       passcode?: string;
       release_note?: string;
+      ip_restriction_enable?: boolean;
+      ip_restriction?: string;
     },
   ): Promise<unknown> {
     return this.request("PUT", `/api/distributions/${accessKey}`, {
@@ -488,6 +490,28 @@ export class DeployGateClient {
 
   async deleteDistribution(accessKey: string): Promise<unknown> {
     return this.request("DELETE", `/api/distributions/${accessKey}`);
+  }
+
+  async deleteDistributionByName(
+    owner: string,
+    platform: string,
+    appId: string,
+    distributionName: string,
+  ): Promise<unknown> {
+    const qs = new URLSearchParams({ distribution_name: distributionName }).toString();
+    return this.request(
+      "DELETE",
+      `/api/users/${owner}/platforms/${platform}/apps/${appId}/distributions?${qs}`,
+    );
+  }
+
+  async updateDistributionRevision(
+    accessKey: string,
+    params: { revision: number; release_note?: string },
+  ): Promise<unknown> {
+    return this.request("POST", `/api/distributions/${accessKey}/packages`, {
+      body: params as Record<string, unknown>,
+    });
   }
 
   // --- iOS UDIDs ---
