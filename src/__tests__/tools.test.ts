@@ -9,6 +9,7 @@ import { registerUdidTools } from "../tools/udids.js";
 import { registerNotificationTools } from "../tools/notifications.js";
 import { registerMemberTools } from "../tools/members.js";
 import { registerSharedTeamTools } from "../tools/shared-teams.js";
+import { registerAppTools } from "../tools/apps.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -67,6 +68,14 @@ function createMockClient() {
     listSharedTeamMembers: vi.fn(),
     removeSharedTeamMember: vi.fn(),
     assignSharedTeamToApp: vi.fn(),
+    getApp: vi.fn(async () => ({})),
+    listAppRevisions: vi.fn(async () => ([])),
+    getAppRevision: vi.fn(async () => ({})),
+    updateAppRevision: vi.fn(async () => ({})),
+    deleteAppRevision: vi.fn(async () => ({})),
+    protectAppRevision: vi.fn(async () => ({})),
+    unprotectAppRevision: vi.fn(async () => ({})),
+    searchAppRevisions: vi.fn(async () => ([])),
   } as unknown as DeployGateClient;
 }
 
@@ -795,5 +804,24 @@ describe("shared team tools", () => {
       username: "user1",
     });
     expect(result2.isError).toBe(true);
+  });
+});
+
+describe("registerAppTools", () => {
+  it("registers all app/binary tools", () => {
+    const { server, tools } = createToolCapture();
+    registerAppTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of [
+      "get_app",
+      "list_app_revisions",
+      "get_app_revision",
+      "update_app_revision",
+      "delete_app_revision",
+      "protect_app_revision",
+      "unprotect_app_revision",
+      "search_app_revisions",
+    ]) {
+      expect(tools.has(name)).toBe(true);
+    }
   });
 });

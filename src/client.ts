@@ -242,6 +242,127 @@ export class DeployGateClient {
     }
   }
 
+  // --- App detail & binaries (revisions) ---
+
+  private appBase(owner: string, platform: string, appId: string): string {
+    return `/api/users/${owner}/platforms/${platform}/apps/${appId}`;
+  }
+
+  async getApp(
+    owner: string,
+    platform: string,
+    appId: string,
+    options?: { revision?: number; key?: string },
+  ): Promise<unknown> {
+    const params = new URLSearchParams();
+    if (options?.revision !== undefined)
+      params.set("revision", String(options.revision));
+    if (options?.key !== undefined) params.set("key", options.key);
+    const qs = params.toString();
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}${qs ? `?${qs}` : ""}`,
+    );
+  }
+
+  async listAppRevisions(
+    owner: string,
+    platform: string,
+    appId: string,
+    options?: { page?: number },
+  ): Promise<unknown> {
+    const params = new URLSearchParams();
+    if (options?.page !== undefined) params.set("page", String(options.page));
+    const qs = params.toString();
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}/binaries${qs ? `?${qs}` : ""}`,
+    );
+  }
+
+  async getAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}`,
+    );
+  }
+
+  async updateAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+    message: string,
+  ): Promise<unknown> {
+    return this.request(
+      "PATCH",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}`,
+      {
+        body: { message },
+        headers: { "X-DEPLOYGATE-API-VERSION": "2" },
+      },
+    );
+  }
+
+  async deleteAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}`,
+    );
+  }
+
+  async protectAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}/protect`,
+    );
+  }
+
+  async unprotectAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}/protect`,
+    );
+  }
+
+  async searchAppRevisions(
+    owner: string,
+    platform: string,
+    appId: string,
+    options: { q: string; page?: number; perPage?: number },
+  ): Promise<unknown> {
+    const params = new URLSearchParams();
+    params.set("q", options.q);
+    if (options.page !== undefined) params.set("paging[page]", String(options.page));
+    if (options.perPage !== undefined)
+      params.set("paging[per_page]", String(options.perPage));
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}/binaries/search?${params.toString()}`,
+      { headers: { "X-DEPLOYGATE-API-VERSION": "2" } },
+    );
+  }
+
   // --- App upload ---
 
   async uploadApp(

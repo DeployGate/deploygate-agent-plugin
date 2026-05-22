@@ -650,6 +650,85 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("app detail & binaries", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("getApp builds the app path with optional revision query", async () => {
+      await client.getApp("alice", "android", "com.example.app", { revision: 5 });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app?revision=5",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("listAppRevisions builds the binaries path with page", async () => {
+      await client.listAppRevisions("alice", "ios", "com.example.app", { page: 2 });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/ios/apps/com.example.app/binaries?page=2",
+      );
+    });
+
+    it("getAppRevision targets a revision", async () => {
+      await client.getAppRevision("alice", "android", "com.example.app", 7);
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7",
+      );
+    });
+
+    it("updateAppRevision sends PATCH with message and v2 header", async () => {
+      await client.updateAppRevision("alice", "android", "com.example.app", 7, "note");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7",
+      );
+      expect(options.method).toBe("PATCH");
+      expect(options.body).toContain("message=note");
+      expect(options.headers["X-DEPLOYGATE-API-VERSION"]).toBe("2");
+    });
+
+    it("deleteAppRevision sends DELETE", async () => {
+      await client.deleteAppRevision("alice", "android", "com.example.app", 7);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("protectAppRevision posts to /protect", async () => {
+      await client.protectAppRevision("alice", "android", "com.example.app", 7);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7/protect",
+      );
+      expect(options.method).toBe("POST");
+    });
+
+    it("unprotectAppRevision deletes /protect", async () => {
+      await client.unprotectAppRevision("alice", "android", "com.example.app", 7);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7/protect",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("searchAppRevisions sends q and v2 header", async () => {
+      await client.searchAppRevisions("alice", "android", "com.example.app", { q: "v1.2" });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/search?q=v1.2",
+      );
+      expect(options.method).toBe("GET");
+      expect(options.headers["X-DEPLOYGATE-API-VERSION"]).toBe("2");
+    });
+  });
+
   describe("shared teams", () => {
     it("creates a shared team", async () => {
       mockFetch.mockResolvedValueOnce(
