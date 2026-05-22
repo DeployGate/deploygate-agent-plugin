@@ -399,7 +399,7 @@ export function registerAppTools(
 
   server.tool(
     "list_app_revisions",
-    "List uploaded build revisions (binaries) of an app, newest first (50 per page).",
+    "List uploaded build revisions (binaries) of an app, newest first (50 per page). Only revisions within the storage retention period are returned; older auto-pruned builds are not listed.",
     {
       owner_name: ownerArg,
       platform: platformArg,
@@ -419,7 +419,7 @@ export function registerAppTools(
 
   server.tool(
     "get_app_revision",
-    "Get details of a specific build revision (binary) of an app.",
+    "Get details of a specific build revision (binary) of an app. Returns 404 if the revision number does not exist.",
     {
       owner_name: ownerArg,
       platform: platformArg,
@@ -439,7 +439,7 @@ export function registerAppTools(
 
   server.tool(
     "update_app_revision",
-    "Update the message (memo) of a build revision.",
+    "Update the message (memo) of a build revision. Only the message can be changed.",
     {
       owner_name: ownerArg,
       platform: platformArg,
@@ -481,7 +481,7 @@ export function registerAppTools(
 
   server.tool(
     "protect_app_revision",
-    "Protect a build revision from automatic deletion. Fails if the protection limit is exceeded.",
+    "Add manual protection to a build revision so it is excluded from automatic deletion (retention pruning). Fails (403) if the app has reached its maximum number of protected revisions.",
     {
       owner_name: ownerArg,
       platform: platformArg,
@@ -521,7 +521,7 @@ export function registerAppTools(
 
   server.tool(
     "search_app_revisions",
-    "Search build revisions of an app by a query string.",
+    "Search build revisions of an app by a query string. Only revisions within the storage retention period are searched.",
     {
       owner_name: ownerArg,
       platform: platformArg,
@@ -716,7 +716,7 @@ export function registerAppMemberTools(
 ): void {
   server.tool(
     "list_app_members",
-    "List members (collaborators and teams) of an app, with usage quota.",
+    "List members of an app with usage quota (used/max). For personal (user-owned) apps this lists individual collaborators; for project/workspace (Group) apps it also includes the teams attached to the app.",
     { owner_name: ownerArg, platform: platformArg, app_id: appIdArg },
     async (args) => {
       const results = await client.listAppMembers(
@@ -922,7 +922,9 @@ Expected: FAIL。
 Run: `npm test -- client.test.ts -t "distribution extensions"`
 Expected: PASS。
 
-- [ ] **Step 5: Add IP params to `update_distribution` tool + 2 new tools**
+- [ ] **Step 5: Add IP params to `update_distribution` tool + 2 new tools（既存 create_distribution の説明文も補強）**
+
+加えて、Phase 1 で触れる distributions モジュール内の既存 `create_distribution` の `.tool(...)` 説明文末尾に「アプリの配布ページ数が上限に達している場合は 400（exceed the maximum number of distributions）。`revision` 省略時は最新ビルドを使用」を追記する（事前周知の一貫適用）。`list_distributions` / `get_distribution` / `delete_distribution` は現状の説明で十分。
 
 `src/tools/distributions.ts` の `update_distribution` の schema に追加（`release_note` の後）:
 
@@ -939,7 +941,7 @@ Expected: PASS。
         .describe("Comma-separated allowed IPs/CIDRs, e.g. '10.0.0.0/24,192.168.1.1'"),
 ```
 
-あわせて `release_scope` の `.describe(...)` に「`authorized_only` はプロジェクト/ワークスペース所有アプリかつプランが対応する場合のみ。個人アプリでは public/unlisted/passcode のみ」を追記する（owner 種別マトリクス参照）。
+あわせて `release_scope` の `.describe(...)` に次を追記する（owner 種別マトリクス参照）: 「`authorized_only` はプロジェクト/ワークスペース所有アプリかつプランが対応する場合のみ（個人アプリは public/unlisted/passcode のみ）。また、配布ページに既にテスターが居る状態では `authorized_only` へ変更できず 422 になる。`passcode` 選択時は `passcode` パラメータが必須。」
 
 同ツールの `client.updateDistribution(...)` 呼び出しに2引数を追加:
 
@@ -960,7 +962,7 @@ Expected: PASS。
 ```typescript
   server.tool(
     "delete_distribution_by_name",
-    "Delete a distribution page by its title (name) within an app. Fails if multiple pages share the name.",
+    "Delete a distribution page by its title (name) within an app. Returns 404 if no page matches the name, and 400 if more than one page shares the name (in that case delete by access_key with delete_distribution instead). Only the distribution page is removed; uploaded builds are preserved.",
     {
       owner_name: z.string().describe("Owner name (user or project)"),
       platform: z.enum(["ios", "android"]).describe("App platform"),
@@ -980,7 +982,7 @@ Expected: PASS。
 
   server.tool(
     "update_distribution_revision",
-    "Change which build revision a distribution page serves.",
+    "Change which build revision a distribution page serves. Returns 404 if the revision does not exist in the app. Requires app admin permission. Re-pointing moves the page's automatic protection to the new revision, which frees the previously-served revision for deletion.",
     {
       access_key: z.string().describe("Distribution page access_key (distribution_key)"),
       revision: z.number().describe("Revision number to assign to the distribution page"),
@@ -1186,7 +1188,7 @@ export function registerKeystoreTools(
 ): void {
   server.tool(
     "get_keystore",
-    "Get the certificate fingerprints of an Android app's signing keystore.",
+    "Get the certificate fingerprints (md5/sha1/sha256/checksum) of an Android app's signing keystore. Android apps only. Returns 404 if the app has no keystore.",
     { owner_name: ownerArg, app_id: appIdArg },
     async (args) => {
       const results = await client.getKeystore(args.owner_name, args.app_id);
@@ -1196,7 +1198,7 @@ export function registerKeystoreTools(
 
   server.tool(
     "create_keystore",
-    "Generate a debug signing keystore for an Android app (commonly-used debug configuration).",
+    "Generate a debug signing keystore for an Android app (commonly-used debug config: alias 'androiddebugkey', password 'android'). Android apps only; requires write permission. If the app already has a keystore this is a no-op that returns a message saying so (use update_keystore to replace).",
     { owner_name: ownerArg, app_id: appIdArg },
     async (args) => {
       const results = await client.createKeystore(args.owner_name, args.app_id);
@@ -1206,7 +1208,7 @@ export function registerKeystoreTools(
 
   server.tool(
     "update_keystore",
-    "Upload/replace an Android app's signing keystore from a local keystore file.",
+    "Upload/replace an Android app's signing keystore from a local keystore file. Android apps only; requires write permission. Returns 400 if the keystore file or its credentials (alias/passwords) are invalid.",
     {
       owner_name: ownerArg,
       app_id: appIdArg,
@@ -1228,7 +1230,7 @@ export function registerKeystoreTools(
 
   server.tool(
     "delete_keystore",
-    "Delete an Android app's signing keystore.",
+    "Delete an Android app's signing keystore. Android apps only; requires write permission. Returns 404 if the app has no keystore.",
     { owner_name: ownerArg, app_id: appIdArg },
     async (args) => {
       const results = await client.deleteKeystore(args.owner_name, args.app_id);
@@ -1238,7 +1240,7 @@ export function registerKeystoreTools(
 
   server.tool(
     "download_keystore",
-    "Get a download URL and checksum for an Android app's signing keystore.",
+    "Get a download URL and checksum for an Android app's signing keystore. Android apps only. Returns 404 if the app has no keystore.",
     { owner_name: ownerArg, app_id: appIdArg },
     async (args) => {
       const results = await client.downloadKeystore(args.owner_name, args.app_id);

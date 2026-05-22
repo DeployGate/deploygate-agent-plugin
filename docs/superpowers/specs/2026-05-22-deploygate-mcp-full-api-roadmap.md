@@ -96,7 +96,8 @@ DeployGate の公開 REST API のうち、**MCP の API トークン（Bearer）
 - `DeployGateClient` に各エンドポイント用メソッドを追加。GET/DELETE/PATCH/PUT は既存 `request()` を再利用。multipart（keystore 更新, SAML 証明書）は `formData` 経路。
 - ツール戻り値は既存同様 `JSON.stringify(results, null, 2)` のテキストコンテンツ。
 - 破壊的操作は既存 `delete_*` と同様に直接実行。説明文に影響範囲を明記。
-- 各エンドポイントの正確なパラメータ・レスポンスは実装ソース `webfront/app/controllers/api/` で裏取り済み（または計画時に確認）。
+- **事前周知の原則**: クライアントは値を事前バリデーションせず素通しし、API が enforce した制約違反は `DeployGateApiError`（`message`）でそのまま surface する。そのうえで、各ツールの説明文に「前提条件・owner/プラン依存・主要なエラー条件（404/400/403/422 とその意味）・代替手順」を**事前周知**として明記し、エージェントが無駄な呼び出しを避け正しい代替操作を選べるようにする。サーバーロジックの二重実装は避ける（drift 防止）。
+- 各エンドポイントの正確なパラメータ・レスポンス・制約は実装ソース `webfront/app/controllers/api/` とモデル/ポリシーで裏取りする（計画時に確認）。
 
 ## テスト
 

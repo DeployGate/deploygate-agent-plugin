@@ -100,7 +100,8 @@ GET/DELETE/PATCH/POST(form) は既存 `request()` ヘルパを再利用。`updat
 ## エラー / 破壊的操作
 
 - 破壊的操作（`delete_app_revision`, `delete_keystore`, `delete_distribution_by_name`）は既存 `delete_*` と同様に直接実行。説明文に副作用（最新/保護中は削除不可、保存済みバイナリは保持 等）を明記。
-- API 側のドメインエラー（409: 保護上限、400: 同名配布複数、404: 配布不在）は既存 `DeployGateApiError` 経路でそのまま伝播。
+- API 側のドメインエラー（403: 保護上限、400: 同名配布複数、404: 配布/リビジョン不在、422: テスター在席時の authorized_only）は既存 `DeployGateApiError` 経路でそのまま伝播。
+- **事前周知の徹底**: 事前バリデーションは行わず、各ツール説明文に前提条件・owner/プラン依存・主要エラー条件・代替手順を明記する（ロードマップ「事前周知の原則」参照）。本フェーズの全ツールで適用済み。
 
 ## テスト
 
