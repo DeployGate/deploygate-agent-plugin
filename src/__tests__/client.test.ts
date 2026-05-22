@@ -866,4 +866,68 @@ describe("DeployGateClient", () => {
       expect(options.body).toContain("team=all+staff");
     });
   });
+
+  describe("keystores", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("getKeystore GETs keystores/show", async () => {
+      await client.getKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores/show",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("createKeystore POSTs keystores/create", async () => {
+      await client.createKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores/create",
+      );
+      expect(options.method).toBe("POST");
+    });
+
+    it("deleteKeystore DELETEs keystores/destroy", async () => {
+      await client.deleteKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores/destroy",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("downloadKeystore GETs keystores/download", async () => {
+      await client.downloadKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores/download",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("updateKeystore PUTs multipart form-data", async () => {
+      const { writeFile, mkdtemp } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const dir = await mkdtemp(join(tmpdir(), "ks-"));
+      const file = join(dir, "release.keystore");
+      await writeFile(file, "dummy");
+
+      await client.updateKeystore("alice", "com.example.app", {
+        filePath: file,
+        aliasName: "release",
+        keystorePassword: "pw1",
+        keyPassword: "pw2",
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores/update",
+      );
+      expect(options.method).toBe("PUT");
+      expect(options.body).toBeInstanceOf(FormData);
+    });
+  });
 });

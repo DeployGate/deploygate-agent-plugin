@@ -666,4 +666,48 @@ export class DeployGateClient {
       { body: { team } },
     );
   }
+
+  // --- Android keystores ---
+
+  private keystoreBase(owner: string, appId: string): string {
+    return `/api/users/${owner}/platforms/android/apps/${appId}/keystores`;
+  }
+
+  async getKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("GET", `${this.keystoreBase(owner, appId)}/show`);
+  }
+
+  async createKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("POST", `${this.keystoreBase(owner, appId)}/create`);
+  }
+
+  async deleteKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("DELETE", `${this.keystoreBase(owner, appId)}/destroy`);
+  }
+
+  async downloadKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("GET", `${this.keystoreBase(owner, appId)}/download`);
+  }
+
+  async updateKeystore(
+    owner: string,
+    appId: string,
+    params: {
+      filePath: string;
+      aliasName: string;
+      keystorePassword: string;
+      keyPassword: string;
+    },
+  ): Promise<unknown> {
+    const fileBuffer = await readFile(params.filePath);
+    const fileName = basename(params.filePath);
+    const formData = new FormData();
+    formData.append("file", new Blob([fileBuffer]), fileName);
+    formData.append("alias_name", params.aliasName);
+    formData.append("keystore_password", params.keystorePassword);
+    formData.append("key_password", params.keyPassword);
+    return this.request("PUT", `${this.keystoreBase(owner, appId)}/update`, {
+      formData,
+    });
+  }
 }

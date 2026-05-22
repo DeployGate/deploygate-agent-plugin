@@ -11,6 +11,7 @@ import { registerMemberTools } from "../tools/members.js";
 import { registerSharedTeamTools } from "../tools/shared-teams.js";
 import { registerAppTools } from "../tools/apps.js";
 import { registerAppMemberTools } from "../tools/app-members.js";
+import { registerKeystoreTools } from "../tools/keystores.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -82,6 +83,11 @@ function createMockClient() {
     protectAppRevision: vi.fn(async () => ({})),
     unprotectAppRevision: vi.fn(async () => ({})),
     searchAppRevisions: vi.fn(async () => ([])),
+    getKeystore: vi.fn(async () => ({})),
+    createKeystore: vi.fn(async () => ({})),
+    updateKeystore: vi.fn(async () => ({})),
+    deleteKeystore: vi.fn(async () => ({})),
+    downloadKeystore: vi.fn(async () => ({})),
   } as unknown as DeployGateClient;
 }
 
@@ -846,6 +852,22 @@ describe("registerAppMemberTools", () => {
     const { server, tools } = createToolCapture();
     registerAppMemberTools(server, createMockClient() as unknown as DeployGateClient);
     for (const name of ["list_app_members", "invite_app_members", "remove_app_members"]) {
+      expect(tools.has(name)).toBe(true);
+    }
+  });
+});
+
+describe("registerKeystoreTools", () => {
+  it("registers keystore tools", () => {
+    const { server, tools } = createToolCapture();
+    registerKeystoreTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of [
+      "get_keystore",
+      "create_keystore",
+      "update_keystore",
+      "delete_keystore",
+      "download_keystore",
+    ]) {
       expect(tools.has(name)).toBe(true);
     }
   });
