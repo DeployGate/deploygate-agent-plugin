@@ -34,6 +34,8 @@ user・group スコープの **アプリ / バイナリ(リビジョン) / ア�
 | `remove_app_members` | DELETE `.../apps/:app_id/members` | body: users(必須, カンマ区切り) | 成功メッセージ |
 
 > 注: コントローラのアクション名は `member_invite`/`member_remove` だが、ルーティングは `POST/DELETE .../members` にマップされている（routes.rb 1264-1266 行）。パスはルーティング準拠。
+>
+> **重要（適用範囲）**: `invite_app_members` / `remove_app_members` は **owner が個人ユーザーのアプリにのみ有効**。`application_policy.rb` の `member_addable?`/`tester_addable?` は owner が User でない場合 `false` を返すため、ワークスペースのプロジェクト配下（owner が Group）のアプリへ直接 invite すると 403 になる。ワークスペースアプリへのアクセス付与は team 経由のフロー（ワークスペース招待 → プロジェクト追加 → アプリに attach 済みチームへ追加、または team 作成＋user 追加＋app に attach）で行う必要があり、これはフェーズ②（チーム/アプリ attach）・③（ワークスペース/プロジェクトメンバー）のツールで実現する。各ツールの説明文にこの制約を明記する。`list_app_members` は users と teams の両方を返すため両ケースで有効。
 
 ### 既存 `distributions.ts` の拡張
 

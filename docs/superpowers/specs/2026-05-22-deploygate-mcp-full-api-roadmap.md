@@ -63,6 +63,16 @@ DeployGate の公開 REST API のうち、**MCP の API トークン（Bearer）
 - `get_member_invitation_request` / `approve_member_invitation_request` / `reject_member_invitation_request`（要: 計画時に認証要件を確認）
 - 横断修正: `createSharedTeam` のパス `sharedteams` → `shared_teams`。
 
+## ドメイン制約: ワークスペースアプリへのアクセス付与フロー
+
+ワークスペースのプロジェクト配下（owner が Group）のアプリには、**ユーザーを直接 invite できない**（`application_policy.rb` の `member_addable?`/`tester_addable?` が owner≠User で `false`。直接 invite は 403）。アクセス付与は次の team 経由フローで行う:
+
+1. ワークスペースにユーザーを招待（フェーズ③ `add_member` 既存 / `list_workspace_members` 等）
+2. プロジェクトにユーザーを追加（既存 `add_member` のオーケストレーション / プロジェクトメンバー系）
+3. アプリに attach 済みのいずれかのチームにユーザーを追加。該当チームが無ければ team を作成しユーザーを追加して app に attach（既存 `assign_shared_team_to_app` / フェーズ② `list_app_teams` 等）
+
+このため、フェーズ①の `invite_app_members` / `remove_app_members` は**個人ユーザー所有アプリ専用**であり、ツール説明文にこの制約と上記の代替フローを明記する。
+
 ## 共通の実装方針
 
 - 既存パターン踏襲: 各モジュールが `register*Tools(server, client)` をエクスポートし `src/index.ts` で登録。
