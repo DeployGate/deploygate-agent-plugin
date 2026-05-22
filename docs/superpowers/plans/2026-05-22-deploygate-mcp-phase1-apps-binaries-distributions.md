@@ -34,9 +34,9 @@
 | list_app_revisions | GET `BASE/binaries` (`?page=`) | v1, 50/page |
 | get_app_revision | GET `BASE/binaries/:revision` | v1 |
 | update_app_revision | PATCH `BASE/binaries/:revision` body `message` | **v2 必須** |
-| delete_app_revision | DELETE `BASE/binaries/:revision` | 最新/保護中は 400 |
-| protect_app_revision | POST `BASE/binaries/:revision/protect` | 上限超過 403 |
-| unprotect_app_revision | DELETE `BASE/binaries/:revision/protect` | |
+| delete_app_revision | DELETE `BASE/binaries/:revision` | 最新/保護中は 400。配布適用中は自動保護のため削除不可（配布を差し替え/削除してから） |
+| protect_app_revision | POST `BASE/binaries/:revision/protect` | 手動保護を付与。上限超過 403 |
+| unprotect_app_revision | DELETE `BASE/binaries/:revision/protect` | 手動保護のみ解除。配布由来の保護は外れない |
 | search_app_revisions | GET `BASE/binaries/search?q=` | **v2 必須** |
 | list_app_members | GET `BASE/members` | |
 | invite_app_members | POST `BASE/members` body `users`,`role` | users はカンマ区切り |
@@ -461,7 +461,7 @@ export function registerAppTools(
 
   server.tool(
     "delete_app_revision",
-    "Delete a build revision (binary). The latest revision and protected revisions cannot be deleted.",
+    "Delete a build revision (binary). The API rejects deletion (HTTP 400) of: (1) the latest revision ('cannot delete the latest binary'), and (2) any protected revision ('cannot delete a protected binary'). A revision currently served by a distribution page is automatically protected and therefore cannot be deleted while in use — first repoint that distribution to another revision (update_distribution_revision) or delete the distribution page (delete_distribution / delete_distribution_by_name). Note: unprotect_app_revision only removes MANUAL protection, not a distribution's protection.",
     {
       owner_name: ownerArg,
       platform: platformArg,
@@ -501,7 +501,7 @@ export function registerAppTools(
 
   server.tool(
     "unprotect_app_revision",
-    "Remove deletion protection from a build revision.",
+    "Remove MANUAL deletion protection from a build revision (the protection added by protect_app_revision). This does NOT remove the automatic protection a revision gets while it is served by a distribution page — for that, repoint or delete the distribution.",
     {
       owner_name: ownerArg,
       platform: platformArg,
