@@ -12,6 +12,10 @@ import { registerUdidTools } from "./tools/udids.js";
 import { registerNotificationTools } from "./tools/notifications.js";
 import { registerMemberTools } from "./tools/members.js";
 import { registerSharedTeamTools } from "./tools/shared-teams.js";
+import { registerAppTools } from "./tools/apps.js";
+import { registerAppMemberTools } from "./tools/app-members.js";
+import { registerKeystoreTools } from "./tools/keystores.js";
+import { registerUserTools } from "./tools/users.js";
 
 const tokenStore = new TokenStore();
 const stored = await tokenStore.load();
@@ -29,6 +33,10 @@ registerUdidTools(server, client);
 registerNotificationTools(server);
 registerMemberTools(server, client);
 registerSharedTeamTools(server, client);
+registerAppTools(server, client);
+registerAppMemberTools(server, client);
+registerKeystoreTools(server, client);
+registerUserTools(server, client);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
