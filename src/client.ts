@@ -86,6 +86,7 @@ export class DeployGateClient {
     options?: {
       body?: Record<string, unknown>;
       formData?: FormData;
+      headers?: Record<string, string>;
     },
   ): Promise<T> {
     if (!this.token) {
@@ -97,6 +98,7 @@ export class DeployGateClient {
     const headers: Record<string, string> = {
       "User-Agent": USER_AGENT,
       Authorization: `Bearer ${this.token}`,
+      ...(options?.headers ?? {}),
     };
 
     const fetchOptions: RequestInit = { method, headers };
