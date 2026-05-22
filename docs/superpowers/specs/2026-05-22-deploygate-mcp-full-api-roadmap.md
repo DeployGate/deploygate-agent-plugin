@@ -73,6 +73,23 @@ DeployGate の公開 REST API のうち、**MCP の API トークン（Bearer）
 
 このため、フェーズ①の `invite_app_members` / `remove_app_members` は**個人ユーザー所有アプリ専用**であり、ツール説明文にこの制約と上記の代替フローを明記する。
 
+## ドメイン制約: owner 種別による機能差マトリクス
+
+アプリ／配布の一部機能は owner 種別（個人User / 単体Group / ワークスペースGroup）で可否が変わる。判別: `owner.is_user?` / `owner.is_group?`、Group は `owner.enterprise?` でワークスペース所属か単体かを区別。
+
+| 機能 | 個人User | 単体Group(プロジェクト) | ワークスペースGroup | 根拠 |
+|---|---|---|---|---|
+| アプリへの直接メンバー invite/remove | ○ | × (403) | × (403) | `application_policy.rb` `member_addable?`/`tester_addable?`（owner≠User で false） |
+| チーム / 共有チームを app に attach | ×（直接メンバーのみ） | ○（プロジェクトチーム） | ○（プロジェクト＋ワークスペース共有チーム） | `application_policy.rb` の team 経由 writable 判定 |
+| 配布 release_scope `authorized_only` | ×（User プランは public/unlisted/passcode のみ） | プラン依存で可 | プラン依存で可（Enterprise プランに委譲） | `concerns/feature_ability/distribution_support.rb`、`distribution.rb` |
+| 配布 IP 制限 (`ip_restriction*`) | × | Group かつ feature flag/許可リスト該当時のみ | 同左 | `services/ip_restriction/distribution_service.rb:12-20`（`!owner.is_a?(Group)` で不可） |
+| 配布 passcode / max_members | プラン依存 | プラン依存 | Enterprise プラン依存 | `distribution.rb` `passcode_enable?`/`max_members_enable?` |
+| keystore（Android 署名鍵）CRUD | ○ | ○ | ○（owner 非依存・Android のみ） | `keystores_controller.rb`（owner 分岐なし） |
+
+実装上の指針:
+- フェーズ①の `update_distribution` は IP 制限・`authorized_only` を owner/プラン依存と説明文に明記（API がプラン外を 422/403 で弾くので、クライアントは値を素通しし、エラーをそのまま返す）。
+- keystore 系は owner 非依存だが Android 専用（`platforms/android` 固定）。
+
 ## 共通の実装方針
 
 - 既存パターン踏襲: 各モジュールが `register*Tools(server, client)` をエクスポートし `src/index.ts` で登録。

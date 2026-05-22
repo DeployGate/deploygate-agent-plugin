@@ -930,12 +930,16 @@ Expected: PASS。
       ip_restriction_enable: z
         .boolean()
         .optional()
-        .describe("Enable IP address restriction for the distribution page"),
+        .describe(
+          "Enable IP address restriction. Only available for apps owned by a project/workspace (Group) and when the feature is enabled for that workspace; personal (user-owned) apps do not support this and the API will reject it.",
+        ),
       ip_restriction: z
         .string()
         .optional()
         .describe("Comma-separated allowed IPs/CIDRs, e.g. '10.0.0.0/24,192.168.1.1'"),
 ```
+
+あわせて `release_scope` の `.describe(...)` に「`authorized_only` はプロジェクト/ワークスペース所有アプリかつプランが対応する場合のみ。個人アプリでは public/unlisted/passcode のみ」を追記する（owner 種別マトリクス参照）。
 
 同ツールの `client.updateDistribution(...)` 呼び出しに2引数を追加:
 
