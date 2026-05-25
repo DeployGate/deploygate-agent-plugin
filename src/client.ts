@@ -598,7 +598,7 @@ export class DeployGateClient {
   // --- Shared teams ---
 
   async createSharedTeam(workspace: string, name: string): Promise<unknown> {
-    return this.request("POST", `/api/enterprises/${workspace}/sharedteams`, {
+    return this.request("POST", `/api/enterprises/${workspace}/shared_teams`, {
       body: { name },
     });
   }
@@ -644,7 +644,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "POST",
-      `/api/organizations/${project}/platforms/${platform}/apps/${appId}/sharedteams`,
+      `/api/organizations/${project}/platforms/${platform}/apps/${appId}/shared_teams`,
       { body: { team } },
     );
   }

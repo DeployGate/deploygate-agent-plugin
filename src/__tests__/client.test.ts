@@ -803,7 +803,7 @@ describe("DeployGateClient", () => {
 
       const [url, options] = mockFetch.mock.calls[0];
       expect(url).toBe(
-        "https://deploygate.com/api/enterprises/my-workspace/sharedteams",
+        "https://deploygate.com/api/enterprises/my-workspace/shared_teams",
       );
       expect(options.body).toContain("name=all+staff");
     });
@@ -837,7 +837,7 @@ describe("DeployGateClient", () => {
 
       const [url, options] = mockFetch.mock.calls[0];
       expect(url).toBe(
-        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/sharedteams",
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/shared_teams",
       );
       expect(options.body).toContain("team=all+staff");
     });
