@@ -43,10 +43,10 @@
 | remove_app_members | DELETE `BASE/members` body `users` | |
 | delete_distribution_by_name | DELETE `BASE/distributions?distribution_name=` | 同名複数 400 / 不在 404 |
 | update_distribution_revision | POST `/api/distributions/:access_key/packages` body `revision`,`release_note` | |
-| get_keystore | GET `BASE/keystores/show` | Android, platform=android 固定 |
-| create_keystore | POST `BASE/keystores/create` | デバッグ鍵生成 |
-| update_keystore | PUT `BASE/keystores/update` multipart | file,alias_name,keystore_password,key_password |
-| delete_keystore | DELETE `BASE/keystores/destroy` | |
+| get_keystore | GET `BASE/keystores` | Android 固定（※ライブ検証で `/show` でなく bare path と判明） |
+| create_keystore | POST `BASE/keystores` | デバッグ鍵生成 |
+| update_keystore | PUT `BASE/keystores` multipart | file,alias_name,keystore_password,key_password |
+| delete_keystore | DELETE `BASE/keystores` | |
 | download_keystore | GET `BASE/keystores/download` | `{url,checksum}` |
 | get_user | GET `/api/users/:id` | |
 
@@ -1041,7 +1041,7 @@ git commit -m "feat(tools): add distribution delete-by-name, revision swap, IP r
 - Create: `src/tools/keystores.ts`
 - Test: `src/__tests__/client.test.ts`, `src/__tests__/tools.test.ts`
 
-> パスは Android 固定（`platforms/android`）。ルートは `on: :collection` のためアクション名がパス末尾に付く。
+> パスは Android 固定（`platforms/android`）。**ライブ検証の結果**、show/create/update/destroy は bare `/keystores`（HTTPメソッドで区別）、download のみ `/keystores/download`。当初 routes.rb から推定した `/keystores/<action>` は本番では HTML 404 になるため誤り（実装は修正済み）。
 
 - [ ] **Step 1: Write failing client tests**
 
