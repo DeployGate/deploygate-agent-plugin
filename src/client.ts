@@ -567,7 +567,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/enterprises/${workspace}/users/${user}`,
+      `/api/enterprises/${workspace}/users/${encodeURIComponent(user)}`,
     );
   }
 

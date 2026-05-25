@@ -1022,6 +1022,13 @@ describe("DeployGateClient", () => {
       expect(options.body).toContain("full_name=A+B");
       expect(options.body).toContain("role=guest");
     });
+
+    it("removeWorkspaceMember DELETEs and encodes the user", async () => {
+      await client.removeWorkspaceMember("ws1", "a@b.com");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users/a%40b.com");
+      expect(options.method).toBe("DELETE");
+    });
   });
 
   describe("user lookup", () => {
