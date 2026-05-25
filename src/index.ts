@@ -16,6 +16,7 @@ import { registerAppTools } from "./tools/apps.js";
 import { registerAppMemberTools } from "./tools/app-members.js";
 import { registerKeystoreTools } from "./tools/keystores.js";
 import { registerUserTools } from "./tools/users.js";
+import { registerProjectTools } from "./tools/projects.js";
 
 const tokenStore = new TokenStore();
 const stored = await tokenStore.load();
@@ -37,6 +38,7 @@ registerAppTools(server, client);
 registerAppMemberTools(server, client);
 registerKeystoreTools(server, client);
 registerUserTools(server, client);
+registerProjectTools(server, client);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

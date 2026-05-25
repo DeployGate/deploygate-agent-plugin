@@ -13,6 +13,7 @@ import { registerUserTools } from "../tools/users.js";
 import { registerAppTools } from "../tools/apps.js";
 import { registerAppMemberTools } from "../tools/app-members.js";
 import { registerKeystoreTools } from "../tools/keystores.js";
+import { registerProjectTools } from "../tools/projects.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -88,6 +89,11 @@ function createMockClient() {
     deleteKeystore: vi.fn(async () => ({})),
     downloadKeystore: vi.fn(async () => ({})),
     getUser: vi.fn(async () => ({})),
+    getProject: vi.fn(async () => ({})),
+    updateProject: vi.fn(async () => ({})),
+    deleteProject: vi.fn(async () => ({})),
+    listProjectApps: vi.fn(async () => ([])),
+    listProjectMembers: vi.fn(async () => ([])),
   } as unknown as DeployGateClient;
 }
 
@@ -876,5 +882,33 @@ describe("registerUserTools", () => {
     const { server, tools } = createToolCapture();
     registerUserTools(server, createMockClient() as unknown as DeployGateClient);
     expect(tools.has("get_user")).toBe(true);
+  });
+});
+
+describe("registerProjectTools", () => {
+  it("registers project tools", () => {
+    const { server, tools } = createToolCapture();
+    registerProjectTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of [
+      "get_project",
+      "update_project",
+      "delete_project",
+      "list_project_apps",
+      "list_project_members",
+    ]) {
+      expect(tools.has(name)).toBe(true);
+    }
+  });
+
+  it("update_project passes display_name and description through", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerProjectTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("update_project")!.handler;
+    await handler({ project: "p", display_name: "D", description: "x" });
+    expect(client.updateProject).toHaveBeenCalledWith("p", {
+      display_name: "D",
+      description: "x",
+    });
   });
 });
