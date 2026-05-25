@@ -880,6 +880,15 @@ describe("registerAppMemberTools", () => {
     await handler({ owner_name: "p", platform: "android", app_id: "com.example.app", team: "qa" });
     expect(client.removeAppTeam).toHaveBeenCalledWith("p", "android", "com.example.app", "qa");
   });
+
+  it("remove_app_shared_team passes team name through", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerAppMemberTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("remove_app_shared_team")!.handler;
+    await handler({ owner_name: "p", platform: "android", app_id: "com.example.app", team: "all staff" });
+    expect(client.removeAppSharedTeam).toHaveBeenCalledWith("p", "android", "com.example.app", "all staff");
+  });
 });
 
 describe("registerKeystoreTools", () => {
