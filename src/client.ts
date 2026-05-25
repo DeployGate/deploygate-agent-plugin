@@ -142,6 +142,33 @@ export class DeployGateClient {
     return this.request("GET", `/api/users/${id}`);
   }
 
+  // --- Projects (organizations) ---
+
+  async getProject(project: string): Promise<unknown> {
+    return this.request("GET", `/api/organizations/${project}`);
+  }
+
+  async updateProject(
+    project: string,
+    params: { display_name?: string; description?: string },
+  ): Promise<unknown> {
+    return this.request("PATCH", `/api/organizations/${project}`, {
+      body: params as Record<string, unknown>,
+    });
+  }
+
+  async deleteProject(project: string): Promise<unknown> {
+    return this.request("DELETE", `/api/organizations/${project}`);
+  }
+
+  async listProjectApps(project: string): Promise<unknown> {
+    return this.request("GET", `/api/organizations/${project}/apps`);
+  }
+
+  async listProjectMembers(project: string): Promise<unknown> {
+    return this.request("GET", `/api/organizations/${project}/members`);
+  }
+
   // --- Device auth code flow ---
 
   async createDeviceCode(

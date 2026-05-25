@@ -947,4 +947,56 @@ describe("DeployGateClient", () => {
       expect(options.method).toBe("GET");
     });
   });
+
+  describe("projects (organizations)", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("getProject GETs the organization", async () => {
+      await client.getProject("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project");
+      expect(options.method).toBe("GET");
+    });
+
+    it("updateProject PATCHes display_name and description", async () => {
+      await client.updateProject("my-project", {
+        display_name: "My Project",
+        description: "hello",
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project");
+      expect(options.method).toBe("PATCH");
+      expect(options.body).toContain("display_name=My+Project");
+      expect(options.body).toContain("description=hello");
+    });
+
+    it("updateProject omits undefined fields", async () => {
+      await client.updateProject("my-project", { description: "only desc" });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toBe("description=only+desc");
+    });
+
+    it("deleteProject DELETEs the organization", async () => {
+      await client.deleteProject("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project");
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("listProjectApps GETs the apps path", async () => {
+      await client.listProjectApps("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project/apps");
+      expect(options.method).toBe("GET");
+    });
+
+    it("listProjectMembers GETs the members path", async () => {
+      await client.listProjectMembers("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project/members");
+      expect(options.method).toBe("GET");
+    });
+  });
 });
