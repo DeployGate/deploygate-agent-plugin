@@ -94,6 +94,10 @@ function createMockClient() {
     deleteProject: vi.fn(async () => ({})),
     listProjectApps: vi.fn(async () => ([])),
     listProjectMembers: vi.fn(async () => ([])),
+    listAppTeams: vi.fn(async () => ([])),
+    removeAppTeam: vi.fn(async () => ({})),
+    listAppSharedTeams: vi.fn(async () => ([])),
+    removeAppSharedTeam: vi.fn(async () => ({})),
   } as unknown as DeployGateClient;
 }
 
@@ -854,10 +858,27 @@ describe("registerAppTools", () => {
 });
 
 describe("registerAppMemberTools", () => {
-  it("registers list_app_members", () => {
+  it("registers app member and team tools", () => {
     const { server, tools } = createToolCapture();
     registerAppMemberTools(server, createMockClient() as unknown as DeployGateClient);
-    expect(tools.has("list_app_members")).toBe(true);
+    for (const name of [
+      "list_app_members",
+      "list_app_teams",
+      "remove_app_team",
+      "list_app_shared_teams",
+      "remove_app_shared_team",
+    ]) {
+      expect(tools.has(name)).toBe(true);
+    }
+  });
+
+  it("remove_app_team passes team name through", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerAppMemberTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("remove_app_team")!.handler;
+    await handler({ owner_name: "p", platform: "android", app_id: "com.example.app", team: "qa" });
+    expect(client.removeAppTeam).toHaveBeenCalledWith("p", "android", "com.example.app", "qa");
   });
 });
 
