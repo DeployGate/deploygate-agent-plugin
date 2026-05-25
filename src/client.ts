@@ -596,6 +596,34 @@ export class DeployGateClient {
     );
   }
 
+  async listWorkspaceProjects(workspace: string): Promise<unknown> {
+    return this.request("GET", `/api/enterprises/${workspace}/organizations`);
+  }
+
+  async createProject(
+    workspace: string,
+    params: {
+      owner_name_or_email: string;
+      name: string;
+      display_name?: string;
+      description?: string;
+    },
+  ): Promise<unknown> {
+    return this.request("POST", `/api/enterprises/${workspace}/organizations`, {
+      body: params as Record<string, unknown>,
+    });
+  }
+
+  async listWorkspaceProjectMembers(
+    workspace: string,
+    project: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/enterprises/${workspace}/organizations/${project}/users`,
+    );
+  }
+
   // --- Team member management ---
 
   async addTeamMember(

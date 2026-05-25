@@ -1092,4 +1092,48 @@ describe("DeployGateClient", () => {
       expect(options.method).toBe("GET");
     });
   });
+
+  describe("workspace projects", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listWorkspaceProjects GETs the organizations path", async () => {
+      await client.listWorkspaceProjects("ws1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/organizations");
+      expect(options.method).toBe("GET");
+    });
+
+    it("createProject POSTs name and owner", async () => {
+      await client.createProject("ws1", {
+        owner_name_or_email: "alice",
+        name: "new-proj",
+        display_name: "New Proj",
+        description: "hi",
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/organizations");
+      expect(options.method).toBe("POST");
+      expect(options.body).toContain("owner_name_or_email=alice");
+      expect(options.body).toContain("name=new-proj");
+      expect(options.body).toContain("display_name=New+Proj");
+      expect(options.body).toContain("description=hi");
+    });
+
+    it("createProject omits undefined optional fields", async () => {
+      await client.createProject("ws1", { owner_name_or_email: "alice", name: "p" });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toBe("owner_name_or_email=alice&name=p");
+    });
+
+    it("listWorkspaceProjectMembers GETs the nested users path", async () => {
+      await client.listWorkspaceProjectMembers("ws1", "proj1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/organizations/proj1/users",
+      );
+      expect(options.method).toBe("GET");
+    });
+  });
 });
