@@ -1155,6 +1155,31 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("SAML certificate", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("updateSamlCertificate PUTs idp_cert as multipart form data", async () => {
+      const { writeFile, mkdtemp } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const dir = await mkdtemp(join(tmpdir(), "saml-"));
+      const file = join(dir, "idp.pem");
+      await writeFile(file, "CERTDATA");
+
+      await client.updateSamlCertificate("ws1", file);
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/saml_settings/update_certificate",
+      );
+      expect(options.method).toBe("PUT");
+      expect(options.body).toBeInstanceOf(FormData);
+      expect((options.body as FormData).has("idp_cert")).toBe(true);
+    });
+  });
+
   describe("workspace projects", () => {
     beforeEach(() => {
       mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));

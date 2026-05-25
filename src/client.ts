@@ -770,6 +770,23 @@ export class DeployGateClient {
     );
   }
 
+  // --- Workspace SAML settings ---
+
+  async updateSamlCertificate(
+    workspace: string,
+    filePath: string,
+  ): Promise<unknown> {
+    const fileBuffer = await readFile(filePath);
+    const fileName = basename(filePath);
+    const formData = new FormData();
+    formData.append("idp_cert", new Blob([fileBuffer]), fileName);
+    return this.request(
+      "PUT",
+      `/api/enterprises/${workspace}/saml_settings/update_certificate`,
+      { formData },
+    );
+  }
+
   // --- App teams (organizations) ---
 
   private orgAppBase(project: string, platform: string, appId: string): string {
