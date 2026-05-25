@@ -16,6 +16,7 @@ import { registerKeystoreTools } from "../tools/keystores.js";
 import { registerProjectTools } from "../tools/projects.js";
 import { registerWorkspaceMemberTools } from "../tools/workspace-members.js";
 import { registerWorkspaceProjectTools } from "../tools/workspace-projects.js";
+import { registerWorkspaceSamlTools } from "../tools/workspace-saml.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -110,6 +111,7 @@ function createMockClient() {
     listWorkspaceProjects: vi.fn(async () => ([])),
     createProject: vi.fn(async () => ({})),
     listWorkspaceProjectMembers: vi.fn(async () => ([])),
+    updateSamlCertificate: vi.fn(async () => ({})),
   } as unknown as DeployGateClient;
 }
 
@@ -1053,5 +1055,22 @@ describe("registerWorkspaceProjectTools", () => {
     const handler = tools.get("remove_project_member")!.handler;
     await handler({ workspace: "ws", project: "p", user: "bob" });
     expect(client.removeProjectMember).toHaveBeenCalledWith("ws", "p", "bob");
+  });
+});
+
+describe("registerWorkspaceSamlTools", () => {
+  it("registers update_saml_certificate", () => {
+    const { server, tools } = createToolCapture();
+    registerWorkspaceSamlTools(server, createMockClient() as unknown as DeployGateClient);
+    expect(tools.has("update_saml_certificate")).toBe(true);
+  });
+
+  it("update_saml_certificate forwards the file path", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerWorkspaceSamlTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("update_saml_certificate")!.handler;
+    await handler({ workspace: "ws", file_path: "/tmp/idp.pem" });
+    expect(client.updateSamlCertificate).toHaveBeenCalledWith("ws", "/tmp/idp.pem");
   });
 });

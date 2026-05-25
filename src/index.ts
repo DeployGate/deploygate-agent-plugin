@@ -19,6 +19,7 @@ import { registerUserTools } from "./tools/users.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerWorkspaceMemberTools } from "./tools/workspace-members.js";
 import { registerWorkspaceProjectTools } from "./tools/workspace-projects.js";
+import { registerWorkspaceSamlTools } from "./tools/workspace-saml.js";
 
 const tokenStore = new TokenStore();
 const stored = await tokenStore.load();
@@ -43,6 +44,7 @@ registerUserTools(server, client);
 registerProjectTools(server, client);
 registerWorkspaceMemberTools(server, client);
 registerWorkspaceProjectTools(server, client);
+registerWorkspaceSamlTools(server, client);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
