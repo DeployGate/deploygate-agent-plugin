@@ -62,6 +62,28 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("empty-body responses", () => {
+    it("returns {} when the response has no JSON body (e.g. 201 head)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: () => Promise.reject(new SyntaxError("Unexpected end of JSON input")),
+      });
+      const result = await client.deleteDistribution("abc123");
+      expect(result).toEqual({});
+    });
+
+    it("returns null for a 204 No Content response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        json: () => Promise.reject(new SyntaxError("Unexpected end of JSON input")),
+      });
+      const result = await client.deleteDistribution("abc123");
+      expect(result).toBeNull();
+    });
+  });
+
   describe("request basics", () => {
     it("sends Authorization header", async () => {
       mockFetch.mockResolvedValueOnce(

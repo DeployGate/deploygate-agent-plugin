@@ -117,7 +117,12 @@ export class DeployGateClient {
     }
 
     const response = await fetch(url, fetchOptions);
-    const data = (await response.json()) as Record<string, unknown>;
+    if (response.status === 204) {
+      return null as T;
+    }
+    const data = (await response
+      .json()
+      .catch(() => ({}))) as Record<string, unknown>;
 
     if (data.error) {
       throw new DeployGateApiError(data as unknown as DeployGateErrorDetail);
