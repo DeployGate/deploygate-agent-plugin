@@ -938,6 +938,56 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("app teams", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listAppTeams GETs the teams path", async () => {
+      await client.listAppTeams("my-project", "android", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/teams",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("removeAppTeam DELETEs the team", async () => {
+      await client.removeAppTeam("my-project", "android", "com.example.app", "qa");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/teams/qa",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("removeAppTeam URL-encodes the team name", async () => {
+      await client.removeAppTeam("my-project", "android", "com.example.app", "all staff");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/teams/all%20staff",
+      );
+    });
+
+    it("listAppSharedTeams GETs the shared_teams path", async () => {
+      await client.listAppSharedTeams("my-project", "android", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/shared_teams",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("removeAppSharedTeam DELETEs the shared team", async () => {
+      await client.removeAppSharedTeam("my-project", "android", "com.example.app", "all staff");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/shared_teams/all%20staff",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+  });
+
   describe("user lookup", () => {
     it("getUser GETs the user path", async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ error: false, results: {} }));

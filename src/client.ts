@@ -682,6 +682,55 @@ export class DeployGateClient {
     );
   }
 
+  // --- App teams (organizations) ---
+
+  private orgAppBase(project: string, platform: string, appId: string): string {
+    return `/api/organizations/${project}/platforms/${platform}/apps/${appId}`;
+  }
+
+  async listAppTeams(
+    project: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request("GET", `${this.orgAppBase(project, platform, appId)}/teams`);
+  }
+
+  async removeAppTeam(
+    project: string,
+    platform: string,
+    appId: string,
+    team: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.orgAppBase(project, platform, appId)}/teams/${encodeURIComponent(team)}`,
+    );
+  }
+
+  async listAppSharedTeams(
+    project: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `${this.orgAppBase(project, platform, appId)}/shared_teams`,
+    );
+  }
+
+  async removeAppSharedTeam(
+    project: string,
+    platform: string,
+    appId: string,
+    team: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.orgAppBase(project, platform, appId)}/shared_teams/${encodeURIComponent(team)}`,
+    );
+  }
+
   // --- Android keystores ---
 
   private keystoreBase(owner: string, appId: string): string {
