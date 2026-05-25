@@ -120,9 +120,10 @@ export class DeployGateClient {
     if (response.status === 204) {
       return null as T;
     }
-    const data = (await response
-      .json()
-      .catch(() => ({}))) as Record<string, unknown>;
+    const data = (await response.json().catch((err: unknown) => {
+      if (err instanceof SyntaxError) return {};
+      throw err;
+    })) as Record<string, unknown>;
 
     if (data.error) {
       throw new DeployGateApiError(data as unknown as DeployGateErrorDetail);

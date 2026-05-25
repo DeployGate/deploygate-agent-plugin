@@ -63,7 +63,7 @@ describe("DeployGateClient", () => {
   });
 
   describe("empty-body responses", () => {
-    it("returns {} when the response has no JSON body (e.g. 201 head)", async () => {
+    it("returns {} when the response has no JSON body (e.g. 201 with empty body)", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -81,6 +81,15 @@ describe("DeployGateClient", () => {
       });
       const result = await client.deleteDistribution("abc123");
       expect(result).toBeNull();
+    });
+
+    it("propagates non-SyntaxError json() failures instead of masking them", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new TypeError("network read failed")),
+      });
+      await expect(client.deleteDistribution("abc123")).rejects.toThrow(TypeError);
     });
   });
 
