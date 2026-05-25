@@ -106,12 +106,14 @@ export function registerMemberTools(
 
   server.tool(
     "list_members",
-    "List members of a specific team in a project.",
+    "List members of a specific team in a project. Use a built-in team name ('owner', 'developer', or 'tester') or any custom team name defined in the project.",
     {
       project: z.string().describe("Project (organization) name"),
       team: z
-        .enum(["owner", "developer", "tester"])
-        .describe("Team name to list members from"),
+        .string()
+        .describe(
+          "Team name: 'owner', 'developer', 'tester', or a custom team name",
+        ),
     },
     async (args) => {
       const results = await client.listTeamMembers(args.project, args.team);

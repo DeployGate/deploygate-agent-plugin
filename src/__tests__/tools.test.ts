@@ -803,6 +803,21 @@ describe("member tools", () => {
       }),
     ).rejects.toThrow("Network error");
   });
+
+  it("list_members accepts a custom (non-enum) team name", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerMemberTools(server, client);
+    const handler = tools.get("list_members")!.handler;
+    await handler({ project: "my-project", team: "qa-custom" });
+    expect(client.listTeamMembers).toHaveBeenCalledWith("my-project", "qa-custom");
+  });
+
+  it("list_members description mentions custom team names", () => {
+    const { server, tools } = createToolCapture();
+    registerMemberTools(server, createMockClient());
+    expect(tools.get("list_members")!.description.toLowerCase()).toContain("custom");
+  });
 });
 
 describe("shared team tools", () => {
