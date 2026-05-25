@@ -78,6 +78,8 @@ function createMockClient() {
     removeTeamMember: vi.fn(),
     createSharedTeam: vi.fn(),
     addSharedTeamMember: vi.fn(),
+    listSharedTeams: vi.fn(async () => ([])),
+    deleteSharedTeam: vi.fn(async () => ({})),
     listSharedTeamMembers: vi.fn(),
     removeSharedTeamMember: vi.fn(),
     assignSharedTeamToApp: vi.fn(),
@@ -830,13 +832,21 @@ describe("member tools", () => {
   });
 });
 
-describe("shared team tools", () => {
-  it("registers all shared team tools", () => {
+describe("registerSharedTeamTools", () => {
+  it("registers shared team tools", () => {
     const { server, tools } = createToolCapture();
-    registerSharedTeamTools(server, createMockClient());
-    expect(tools.has("create_shared_team")).toBe(true);
-    expect(tools.has("add_shared_team_member")).toBe(true);
-    expect(tools.has("assign_shared_team_to_app")).toBe(true);
+    registerSharedTeamTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of [
+      "create_shared_team",
+      "add_shared_team_member",
+      "assign_shared_team_to_app",
+      "list_shared_teams",
+      "delete_shared_team",
+      "list_shared_team_members",
+      "remove_shared_team_member",
+    ]) {
+      expect(tools.has(name)).toBe(true);
+    }
   });
 
   it("add_shared_team_member validates email XOR username", async () => {
@@ -860,6 +870,15 @@ describe("shared team tools", () => {
       username: "user1",
     });
     expect(result2.isError).toBe(true);
+  });
+
+  it("remove_shared_team_member forwards args", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerSharedTeamTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("remove_shared_team_member")!.handler;
+    await handler({ workspace: "ws", shared_team_id: "t1", user: "bob" });
+    expect(client.removeSharedTeamMember).toHaveBeenCalledWith("ws", "t1", "bob");
   });
 });
 
