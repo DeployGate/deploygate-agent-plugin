@@ -1093,6 +1093,28 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("workspace shared teams", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listSharedTeams GETs the shared_teams path", async () => {
+      await client.listSharedTeams("ws1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/shared_teams");
+      expect(options.method).toBe("GET");
+    });
+
+    it("deleteSharedTeam DELETEs and encodes the team name", async () => {
+      await client.deleteSharedTeam("ws1", "all staff");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/shared_teams/all%20staff",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+  });
+
   describe("workspace projects", () => {
     beforeEach(() => {
       mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));

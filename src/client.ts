@@ -679,6 +679,17 @@ export class DeployGateClient {
     });
   }
 
+  async listSharedTeams(workspace: string): Promise<unknown> {
+    return this.request("GET", `/api/enterprises/${workspace}/shared_teams`);
+  }
+
+  async deleteSharedTeam(workspace: string, team: string): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(team)}`,
+    );
+  }
+
   async addSharedTeamMember(
     workspace: string,
     sharedTeamId: string,
