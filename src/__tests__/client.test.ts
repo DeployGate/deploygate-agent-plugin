@@ -988,6 +988,42 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("workspace members", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listWorkspaceMembers GETs the users path", async () => {
+      await client.listWorkspaceMembers("ws1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users");
+      expect(options.method).toBe("GET");
+    });
+
+    it("getWorkspaceMember GETs and encodes the id", async () => {
+      await client.getWorkspaceMember("ws1", "a@b.com");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users/a%40b.com");
+      expect(options.method).toBe("GET");
+    });
+
+    it("addWorkspaceMember POSTs just the user when no options", async () => {
+      await client.addWorkspaceMember("ws1", "alice");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users");
+      expect(options.method).toBe("POST");
+      expect(options.body).toBe("user=alice");
+    });
+
+    it("addWorkspaceMember POSTs full_name and role when provided", async () => {
+      await client.addWorkspaceMember("ws1", "a@b.com", { full_name: "A B", role: "guest" });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toContain("user=a%40b.com");
+      expect(options.body).toContain("full_name=A+B");
+      expect(options.body).toContain("role=guest");
+    });
+  });
+
   describe("user lookup", () => {
     it("getUser GETs the user path", async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ error: false, results: {} }));

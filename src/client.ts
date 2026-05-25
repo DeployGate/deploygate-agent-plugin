@@ -540,9 +540,24 @@ export class DeployGateClient {
 
   // --- Workspace member management ---
 
-  async addWorkspaceMember(workspace: string, user: string): Promise<unknown> {
+  async listWorkspaceMembers(workspace: string): Promise<unknown> {
+    return this.request("GET", `/api/enterprises/${workspace}/users`);
+  }
+
+  async getWorkspaceMember(workspace: string, id: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/enterprises/${workspace}/users/${encodeURIComponent(id)}`,
+    );
+  }
+
+  async addWorkspaceMember(
+    workspace: string,
+    user: string,
+    options?: { full_name?: string; role?: string },
+  ): Promise<unknown> {
     return this.request("POST", `/api/enterprises/${workspace}/users`, {
-      body: { user },
+      body: { user, ...options },
     });
   }
 
