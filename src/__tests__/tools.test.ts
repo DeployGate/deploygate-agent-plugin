@@ -14,6 +14,7 @@ import { registerAppTools } from "../tools/apps.js";
 import { registerAppMemberTools } from "../tools/app-members.js";
 import { registerKeystoreTools } from "../tools/keystores.js";
 import { registerProjectTools } from "../tools/projects.js";
+import { registerWorkspaceMemberTools } from "../tools/workspace-members.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -61,12 +62,17 @@ function createMockClient() {
     deleteDistributionByName: vi.fn(async () => ({})),
     updateDistributionRevision: vi.fn(async () => ({})),
     getUdids: vi.fn(),
+    listWorkspaceMembers: vi.fn(async () => ([])),
+    getWorkspaceMember: vi.fn(async () => ({})),
     addWorkspaceMember: vi.fn(),
     addProjectMember: vi.fn(),
     addTeamMember: vi.fn(),
     assignTeamToApp: vi.fn(),
     listTeamMembers: vi.fn(),
-    removeWorkspaceMember: vi.fn(),
+    removeWorkspaceMember: vi.fn(async () => ({})),
+    getMemberInvitationRequest: vi.fn(async () => ({})),
+    approveMemberInvitationRequest: vi.fn(async () => ({})),
+    rejectMemberInvitationRequest: vi.fn(async () => ({})),
     removeProjectMember: vi.fn(),
     removeTeamMember: vi.fn(),
     createSharedTeam: vi.fn(),
@@ -954,6 +960,36 @@ describe("registerProjectTools", () => {
     expect(client.updateProject).toHaveBeenCalledWith("p", {
       display_name: "D",
       description: "x",
+    });
+  });
+});
+
+describe("registerWorkspaceMemberTools", () => {
+  it("registers workspace member tools", () => {
+    const { server, tools } = createToolCapture();
+    registerWorkspaceMemberTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of [
+      "list_workspace_members",
+      "get_workspace_member",
+      "add_workspace_member",
+      "remove_workspace_member",
+      "get_member_invitation_request",
+      "approve_member_invitation_request",
+      "reject_member_invitation_request",
+    ]) {
+      expect(tools.has(name)).toBe(true);
+    }
+  });
+
+  it("add_workspace_member forwards full_name and role", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerWorkspaceMemberTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("add_workspace_member")!.handler;
+    await handler({ workspace: "ws", user: "a@b.com", full_name: "A B", role: "guest" });
+    expect(client.addWorkspaceMember).toHaveBeenCalledWith("ws", "a@b.com", {
+      full_name: "A B",
+      role: "guest",
     });
   });
 });
