@@ -71,7 +71,7 @@ DeployGate の公開 REST API のうち、**MCP の API トークン（Bearer）
 2. プロジェクトにユーザーを追加（既存 `add_member` のオーケストレーション / プロジェクトメンバー系）
 3. アプリに attach 済みのいずれかのチームにユーザーを追加。該当チームが無ければ team を作成しユーザーを追加して app に attach（既存 `assign_shared_team_to_app` / フェーズ② `list_app_teams` 等）
 
-このため、フェーズ①の `invite_app_members` / `remove_app_members` は**個人ユーザー所有アプリ専用**であり、ツール説明文にこの制約と上記の代替フローを明記する。
+このため `invite_app_members` / `remove_app_members` は**個人ユーザー所有アプリ専用**になる。個人ユーザー所有アプリはサポートスコープ外と決まったため、これら 2 ツールは**フェーズ①の最終成果から除外（実装後に削除）**した。アプリへのアクセス付与・剥奪は上記 team 経由フロー（フェーズ②・③のツール）でカバーする。`list_app_members` は users と teams の両方を返し owner 種別を問わず有効なため、これは残す。
 
 ## ドメイン制約: owner 種別による機能差マトリクス
 

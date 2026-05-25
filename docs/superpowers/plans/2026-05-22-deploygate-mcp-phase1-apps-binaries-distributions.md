@@ -39,8 +39,8 @@
 | unprotect_app_revision | DELETE `BASE/binaries/:revision/protect` | 手動保護のみ解除。配布由来の保護は外れない |
 | search_app_revisions | GET `BASE/binaries/search?q=` | **v2 必須** |
 | list_app_members | GET `BASE/members` | |
-| invite_app_members | POST `BASE/members` body `users`,`role` | users はカンマ区切り |
-| remove_app_members | DELETE `BASE/members` body `users` | |
+| ~~invite_app_members~~ | ~~POST `BASE/members`~~ | **実装後に削除**（個人アプリ専用・スコープ外） |
+| ~~remove_app_members~~ | ~~DELETE `BASE/members`~~ | **実装後に削除**（個人アプリ専用・スコープ外） |
 | delete_distribution_by_name | DELETE `BASE/distributions?distribution_name=` | 同名複数 400 / 不在 404 |
 | update_distribution_revision | POST `/api/distributions/:access_key/packages` body `revision`,`release_note` | |
 | get_keystore | GET `BASE/keystores` | Android 固定（※ライブ検証で `/show` でなく bare path と判明） |
@@ -52,7 +52,7 @@
 
 `ApplicationMember::Role`: Member=1, ReadOnly=2, DownloadOnly=3。
 
-> **重要（アプリメンバーの適用範囲）**: `invite_app_members` / `remove_app_members` は **owner が個人ユーザーのアプリにのみ有効**。`application_policy.rb` の `member_addable?`/`tester_addable?` は owner が User でない場合 `false` を返すため、ワークスペースのプロジェクト配下（owner が Group）のアプリへ直接 invite すると 403 になる。ワークスペースアプリへのアクセス付与は「ワークスペースに招待 → プロジェクトに追加 → アプリに attach 済みのいずれかのチームに追加（または team を作成し user を追加して app に attach）」という team 経由のフロー（フェーズ②・③のツール）で行う。`list_app_members` は users と teams の両方を返すため両ケースで有効。
+> **削除済み（アプリメンバーの適用範囲）**: 下記 Task に登場する `invite_app_members` / `remove_app_members` は **owner が個人ユーザーのアプリにのみ有効**（`application_policy.rb` の `member_addable?`/`tester_addable?` が owner≠User で `false`。Group 所有へ直接 invite すると 403）。個人ユーザー所有アプリがサポートスコープ外と決まったため、**実装後にこの 2 ツール（および client メソッド `inviteAppMembers`/`removeAppMembers`、関連テスト）を削除した**。以下の Task 中の該当コードは履歴として残すが、最終成果には含まれない。ワークスペース／プロジェクトアプリへのアクセス付与は「ワークスペースに招待 → プロジェクトに追加 → アプリに attach 済みのいずれかのチームに追加（または team を作成し user を追加して app に attach）」という team 経由フロー（フェーズ②・③のツール）で行う。`list_app_members` は users と teams の両方を返すため両ケースで有効（残す）。
 
 ---
 
@@ -1435,7 +1435,7 @@ git commit -m "feat: register phase 1 app/distribution management tools"
 
 ## 完了条件
 
-- 新規 19 ツール（get_app, list_app_revisions, get_app_revision, update_app_revision, delete_app_revision, protect_app_revision, unprotect_app_revision, search_app_revisions, list_app_members, invite_app_members, remove_app_members, delete_distribution_by_name, update_distribution_revision, get_keystore, create_keystore, update_keystore, delete_keystore, download_keystore, get_user）が登録される。
+- 新規 17 ツール（get_app, list_app_revisions, get_app_revision, update_app_revision, delete_app_revision, protect_app_revision, unprotect_app_revision, search_app_revisions, list_app_members, delete_distribution_by_name, update_distribution_revision, get_keystore, create_keystore, update_keystore, delete_keystore, download_keystore, get_user）が登録される。<br>※ 当初計画の `invite_app_members` / `remove_app_members` は個人アプリ専用（スコープ外）のため実装後に削除。
 - `update_distribution` に IP 制限 2 パラメータが追加される。
 - `npm run build && npm test` がすべて PASS。
 - `plugin/scripts/bundle.js` は手動再生成しない（release-please が処理）。

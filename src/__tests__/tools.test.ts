@@ -74,8 +74,6 @@ function createMockClient() {
     removeSharedTeamMember: vi.fn(),
     assignSharedTeamToApp: vi.fn(),
     listAppMembers: vi.fn(async () => ({})),
-    inviteAppMembers: vi.fn(async () => ({})),
-    removeAppMembers: vi.fn(async () => ({})),
     getApp: vi.fn(async () => ({})),
     listAppRevisions: vi.fn(async () => ([])),
     getAppRevision: vi.fn(async () => ({})),
@@ -850,12 +848,10 @@ describe("registerAppTools", () => {
 });
 
 describe("registerAppMemberTools", () => {
-  it("registers app member tools", () => {
+  it("registers list_app_members", () => {
     const { server, tools } = createToolCapture();
     registerAppMemberTools(server, createMockClient() as unknown as DeployGateClient);
-    for (const name of ["list_app_members", "invite_app_members", "remove_app_members"]) {
-      expect(tools.has(name)).toBe(true);
-    }
+    expect(tools.has("list_app_members")).toBe(true);
   });
 });
 
