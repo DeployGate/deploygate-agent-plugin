@@ -15,6 +15,7 @@ import { registerAppMemberTools } from "../tools/app-members.js";
 import { registerKeystoreTools } from "../tools/keystores.js";
 import { registerProjectTools } from "../tools/projects.js";
 import { registerWorkspaceMemberTools } from "../tools/workspace-members.js";
+import { registerWorkspaceProjectTools } from "../tools/workspace-projects.js";
 
 // Helper to capture registered tools from McpServer
 function createToolCapture() {
@@ -104,6 +105,9 @@ function createMockClient() {
     removeAppTeam: vi.fn(async () => ({})),
     listAppSharedTeams: vi.fn(async () => ([])),
     removeAppSharedTeam: vi.fn(async () => ({})),
+    listWorkspaceProjects: vi.fn(async () => ([])),
+    createProject: vi.fn(async () => ({})),
+    listWorkspaceProjectMembers: vi.fn(async () => ([])),
   } as unknown as DeployGateClient;
 }
 
@@ -991,5 +995,44 @@ describe("registerWorkspaceMemberTools", () => {
       full_name: "A B",
       role: "guest",
     });
+  });
+});
+
+describe("registerWorkspaceProjectTools", () => {
+  it("registers workspace project tools", () => {
+    const { server, tools } = createToolCapture();
+    registerWorkspaceProjectTools(server, createMockClient() as unknown as DeployGateClient);
+    for (const name of [
+      "list_workspace_projects",
+      "create_project",
+      "list_workspace_project_members",
+      "add_project_member",
+      "remove_project_member",
+    ]) {
+      expect(tools.has(name)).toBe(true);
+    }
+  });
+
+  it("create_project forwards params", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerWorkspaceProjectTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("create_project")!.handler;
+    await handler({ workspace: "ws", owner_name_or_email: "alice", name: "p", display_name: "P", description: "d" });
+    expect(client.createProject).toHaveBeenCalledWith("ws", {
+      owner_name_or_email: "alice",
+      name: "p",
+      display_name: "P",
+      description: "d",
+    });
+  });
+
+  it("remove_project_member forwards args", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    registerWorkspaceProjectTools(server, client as unknown as DeployGateClient);
+    const handler = tools.get("remove_project_member")!.handler;
+    await handler({ workspace: "ws", project: "p", user: "bob" });
+    expect(client.removeProjectMember).toHaveBeenCalledWith("ws", "p", "bob");
   });
 });
