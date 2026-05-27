@@ -55,42 +55,4 @@ export function registerWorkspaceMemberTools(
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
     },
   );
-
-  server.tool(
-    "get_member_invitation_request",
-    "Get the status of a workspace member invitation request by its display id. Requires a USER API token with member-management permission. Returns 404 if not found.",
-    { workspace: workspaceArg, id: z.string().describe("Invitation request display id") },
-    async (args) => {
-      const results = await client.getMemberInvitationRequest(args.workspace, args.id);
-      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
-    },
-  );
-
-  server.tool(
-    "approve_member_invitation_request",
-    "Approve a pending workspace member invitation request. Requires a USER API token with member-management permission. Only pending requests can be approved (400); returns 403 if member seats are exceeded, 422 if the requester already belongs to a workspace.",
-    { workspace: workspaceArg, id: z.string().describe("Invitation request display id") },
-    async (args) => {
-      const results = await client.approveMemberInvitationRequest(args.workspace, args.id);
-      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
-    },
-  );
-
-  server.tool(
-    "reject_member_invitation_request",
-    "Reject a pending workspace member invitation request, optionally with a reason. Requires a USER API token with member-management permission. Only pending requests can be rejected (400).",
-    {
-      workspace: workspaceArg,
-      id: z.string().describe("Invitation request display id"),
-      reason: z.string().optional().describe("Optional reason for rejection"),
-    },
-    async (args) => {
-      const results = await client.rejectMemberInvitationRequest(
-        args.workspace,
-        args.id,
-        args.reason,
-      );
-      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
-    },
-  );
 }

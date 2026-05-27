@@ -1105,46 +1105,6 @@ describe("DeployGateClient", () => {
     });
   });
 
-  describe("member invitation requests", () => {
-    beforeEach(() => {
-      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
-    });
-
-    it("getMemberInvitationRequest GETs the request", async () => {
-      await client.getMemberInvitationRequest("ws1", "req-7");
-      const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe(
-        "https://deploygate.com/api/enterprises/ws1/member_invitation_requests/req-7",
-      );
-      expect(options.method).toBe("GET");
-    });
-
-    it("approveMemberInvitationRequest POSTs to approve", async () => {
-      await client.approveMemberInvitationRequest("ws1", "req-7");
-      const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe(
-        "https://deploygate.com/api/enterprises/ws1/member_invitation_requests/req-7/approve",
-      );
-      expect(options.method).toBe("POST");
-    });
-
-    it("rejectMemberInvitationRequest POSTs reason to reject", async () => {
-      await client.rejectMemberInvitationRequest("ws1", "req-7", "not allowed");
-      const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe(
-        "https://deploygate.com/api/enterprises/ws1/member_invitation_requests/req-7/reject",
-      );
-      expect(options.method).toBe("POST");
-      expect(options.body).toBe("reason=not+allowed");
-    });
-
-    it("rejectMemberInvitationRequest omits reason when not given", async () => {
-      await client.rejectMemberInvitationRequest("ws1", "req-7");
-      const [, options] = mockFetch.mock.calls[0];
-      expect(options.body).toBe("");
-    });
-  });
-
   describe("SAML certificate", () => {
     beforeEach(() => {
       mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));

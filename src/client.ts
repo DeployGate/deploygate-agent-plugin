@@ -732,40 +732,6 @@ export class DeployGateClient {
     );
   }
 
-  // --- Member invitation requests ---
-
-  async getMemberInvitationRequest(
-    workspace: string,
-    id: string,
-  ): Promise<unknown> {
-    return this.request(
-      "GET",
-      `/api/enterprises/${workspace}/member_invitation_requests/${encodeURIComponent(id)}`,
-    );
-  }
-
-  async approveMemberInvitationRequest(
-    workspace: string,
-    id: string,
-  ): Promise<unknown> {
-    return this.request(
-      "POST",
-      `/api/enterprises/${workspace}/member_invitation_requests/${encodeURIComponent(id)}/approve`,
-    );
-  }
-
-  async rejectMemberInvitationRequest(
-    workspace: string,
-    id: string,
-    reason?: string,
-  ): Promise<unknown> {
-    return this.request(
-      "POST",
-      `/api/enterprises/${workspace}/member_invitation_requests/${encodeURIComponent(id)}/reject`,
-      { body: { reason } },
-    );
-  }
-
   // --- Workspace SAML settings ---
 
   async updateSamlCertificate(

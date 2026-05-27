@@ -71,9 +71,6 @@ function createMockClient() {
     assignTeamToApp: vi.fn(),
     listTeamMembers: vi.fn(),
     removeWorkspaceMember: vi.fn(async () => ({})),
-    getMemberInvitationRequest: vi.fn(async () => ({})),
-    approveMemberInvitationRequest: vi.fn(async () => ({})),
-    rejectMemberInvitationRequest: vi.fn(async () => ({})),
     removeProjectMember: vi.fn(),
     removeTeamMember: vi.fn(),
     createSharedTeam: vi.fn(),
@@ -988,9 +985,6 @@ describe("registerWorkspaceMemberTools", () => {
       "get_workspace_member",
       "add_workspace_member",
       "remove_workspace_member",
-      "get_member_invitation_request",
-      "approve_member_invitation_request",
-      "reject_member_invitation_request",
     ]) {
       expect(tools.has(name)).toBe(true);
     }
