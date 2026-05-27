@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+
+# Agent workflow design docs (specs/plans) — kept local, not tracked
+docs/superpowers/
