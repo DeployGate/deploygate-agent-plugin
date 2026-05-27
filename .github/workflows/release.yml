@@ -7,6 +7,9 @@ on:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -63,6 +66,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: npm install -g npm@latest
+
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
         run: npm ci
 
       - if: ${{ steps.release.outputs.release_created == 'true' }}
@@ -70,5 +76,3 @@ jobs:
 
       - if: ${{ steps.release.outputs.release_created == 'true' }}
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
