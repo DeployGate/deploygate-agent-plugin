@@ -1031,16 +1031,6 @@ describe("DeployGateClient", () => {
     });
   });
 
-  describe("user lookup", () => {
-    it("getUser GETs the user path", async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse({ error: false, results: {} }));
-      await client.getUser("alice");
-      const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe("https://deploygate.com/api/users/alice");
-      expect(options.method).toBe("GET");
-    });
-  });
-
   describe("projects (organizations)", () => {
     beforeEach(() => {
       mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));

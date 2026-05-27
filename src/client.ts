@@ -138,10 +138,6 @@ export class DeployGateClient {
     return this.request("GET", "/api/organizations");
   }
 
-  async getUser(id: string): Promise<unknown> {
-    return this.request("GET", `/api/users/${id}`);
-  }
-
   // --- Projects (organizations) ---
 
   async getProject(project: string): Promise<unknown> {

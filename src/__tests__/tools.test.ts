@@ -9,7 +9,6 @@ import { registerUdidTools } from "../tools/udids.js";
 import { registerNotificationTools } from "../tools/notifications.js";
 import { registerMemberTools } from "../tools/members.js";
 import { registerSharedTeamTools } from "../tools/shared-teams.js";
-import { registerUserTools } from "../tools/users.js";
 import { registerAppTools } from "../tools/apps.js";
 import { registerAppMemberTools } from "../tools/app-members.js";
 import { registerKeystoreTools } from "../tools/keystores.js";
@@ -98,7 +97,6 @@ function createMockClient() {
     updateKeystore: vi.fn(async () => ({})),
     deleteKeystore: vi.fn(async () => ({})),
     downloadKeystore: vi.fn(async () => ({})),
-    getUser: vi.fn(async () => ({})),
     getProject: vi.fn(async () => ({})),
     updateProject: vi.fn(async () => ({})),
     deleteProject: vi.fn(async () => ({})),
@@ -950,14 +948,6 @@ describe("registerKeystoreTools", () => {
     ]) {
       expect(tools.has(name)).toBe(true);
     }
-  });
-});
-
-describe("registerUserTools", () => {
-  it("registers get_user", () => {
-    const { server, tools } = createToolCapture();
-    registerUserTools(server, createMockClient() as unknown as DeployGateClient);
-    expect(tools.has("get_user")).toBe(true);
   });
 });
 
