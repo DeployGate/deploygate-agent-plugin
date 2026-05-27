@@ -51,3 +51,24 @@ jobs:
             git commit --no-verify -m "chore: regenerate bundle.js for release"
             git push origin "HEAD:${BRANCH}"
           fi
+
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v6
+
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: npm ci
+
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: npm run bundle
+
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
