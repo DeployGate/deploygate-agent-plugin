@@ -125,12 +125,14 @@ export function registerMemberTools(
 
   server.tool(
     "remove_member",
-    "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project.",
+    "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project. Accepts a built-in team name ('owner', 'developer', 'tester') or any custom team name defined in the project.",
     {
       project: z.string().describe("Project (organization) name"),
       team: z
-        .enum(["owner", "developer", "tester"])
-        .describe("Team to remove the member from"),
+        .string()
+        .describe(
+          "Team to remove the member from: 'owner', 'developer', 'tester', or a custom team name",
+        ),
       user: z
         .string()
         .describe("User to remove (email address or username)"),
