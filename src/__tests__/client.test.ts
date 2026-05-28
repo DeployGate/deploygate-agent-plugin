@@ -91,6 +91,18 @@ describe("DeployGateClient", () => {
       });
       await expect(client.deleteDistribution("abc123")).rejects.toThrow(TypeError);
     });
+
+    it("throws DeployGateApiError when a 4xx/5xx returns an empty or non-JSON body", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: () => Promise.reject(new SyntaxError("Unexpected end of JSON input")),
+      });
+      await expect(client.deleteDistribution("abc123")).rejects.toMatchObject({
+        name: "DeployGateApiError",
+        message: expect.stringContaining("404"),
+      });
+    });
   });
 
   describe("request basics", () => {

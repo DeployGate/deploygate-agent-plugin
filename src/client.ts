@@ -121,7 +121,17 @@ export class DeployGateClient {
       return null as T;
     }
     const data = (await response.json().catch((err: unknown) => {
-      if (err instanceof SyntaxError) return {};
+      if (err instanceof SyntaxError) {
+        // Empty/non-JSON body is acceptable only on a successful response
+        // (e.g. some endpoints reply with `head :created` / empty 200).
+        // For non-2xx responses, surface a real error instead of masking
+        // the failure as a phantom success.
+        if (response.ok) return {};
+        throw new DeployGateApiError({
+          error: true,
+          message: `Unexpected status ${response.status} with empty or non-JSON body`,
+        });
+      }
       throw err;
     })) as Record<string, unknown>;
 
