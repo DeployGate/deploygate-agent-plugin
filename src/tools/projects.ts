@@ -63,7 +63,7 @@ export function registerProjectTools(
 
   server.tool(
     "list_project_members",
-    "List all users that belong to a project (organization). Returns 403 if you lack permission on the project. (To list members of a single team, use list_members.)",
+    "List all users that belong to a project (organization). Returns 403 if you lack permission on the project. (To list members of a single team, use list_team_members.)",
     { project: projectArg },
     async (args) => {
       const results = await client.listProjectMembers(args.project);

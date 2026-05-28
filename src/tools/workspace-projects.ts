@@ -66,7 +66,7 @@ export function registerWorkspaceProjectTools(
 
   server.tool(
     "remove_project_member",
-    "Remove a member from a project (organization). DESTRUCTIVE. Returns 403 if the user is not a project member or you lack permission. This removes project-level membership; to remove from a single team use remove_member.",
+    "Remove a member from a project (organization). DESTRUCTIVE. Returns 403 if the user is not a project member or you lack permission. This removes project-level membership; to remove from a single team use remove_team_member.",
     {
       workspace: workspaceArg,
       project: projectArg,

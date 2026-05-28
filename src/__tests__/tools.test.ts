@@ -632,14 +632,30 @@ describe("notification tools", () => {
 });
 
 describe("member tools", () => {
-  it("add_member orchestrates all steps for developer", async () => {
+  // Standard 3 auto-created teams returned by client.getProject for tests
+  // that exercise the locale-aware team-name resolution in add_member.
+  const standardTeamsResponse = {
+    organization: {
+      teams: [
+        { name: "Owner", role: "owner" },
+        { name: "Developer", role: "developer" },
+        { name: "Tester", role: "tester" },
+      ],
+    },
+  };
+
+  it("add_member orchestrates all 4 steps for developer (attaches developer team to app)", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue(
+      standardTeamsResponse,
+    );
     (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
       {},
     );
     (client.addProjectMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
     (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.assignTeamToApp as ReturnType<typeof vi.fn>).mockResolvedValue({});
     registerMemberTools(server, client);
 
     const handler = tools.get("add_member")!.handler;
@@ -648,6 +664,8 @@ describe("member tools", () => {
       project: "proj",
       user: "dev@example.com",
       role: "developer",
+      platform: "android",
+      app_id: "com.example.app",
     });
 
     expect(client.addWorkspaceMember).toHaveBeenCalledWith(
@@ -661,16 +679,24 @@ describe("member tools", () => {
     );
     expect(client.addTeamMember).toHaveBeenCalledWith(
       "proj",
-      "developer",
+      "Developer",
       "dev@example.com",
     );
-    expect(client.assignTeamToApp).not.toHaveBeenCalled();
+    expect(client.assignTeamToApp).toHaveBeenCalledWith(
+      "proj",
+      "android",
+      "com.example.app",
+      "Developer",
+    );
     expect(result.content[0].text).toContain("developer");
   });
 
   it("add_member orchestrates 4 steps for tester", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue(
+      standardTeamsResponse,
+    );
     (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
       {},
     );
@@ -689,32 +715,91 @@ describe("member tools", () => {
       app_id: "com.example.app",
     });
 
+    expect(client.addTeamMember).toHaveBeenCalledWith(
+      "proj",
+      "Tester",
+      "tester@example.com",
+    );
     expect(client.assignTeamToApp).toHaveBeenCalledWith(
       "proj",
       "ios",
       "com.example.app",
-      "tester",
+      "Tester",
     );
     expect(result.content[0].text).toContain("tester");
   });
 
-  it("add_member requires platform/app_id for tester", async () => {
+  it("add_member resolves locale-dependent team names by role (e.g. Japanese)", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue({
+      organization: {
+        teams: [
+          { name: "オーナー", role: "owner" },
+          { name: "開発者", role: "developer" },
+          { name: "テスター", role: "tester" },
+        ],
+      },
+    });
+    (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
+      {},
+    );
+    (client.addProjectMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (client.assignTeamToApp as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    registerMemberTools(server, client);
+
+    const handler = tools.get("add_member")!.handler;
+    await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "tester@example.com",
+      role: "tester",
+      platform: "android",
+      app_id: "com.example.app",
+    });
+
+    expect(client.addTeamMember).toHaveBeenCalledWith(
+      "proj",
+      "テスター",
+      "tester@example.com",
+    );
+    expect(client.assignTeamToApp).toHaveBeenCalledWith(
+      "proj",
+      "android",
+      "com.example.app",
+      "テスター",
+    );
+  });
+
+  it("add_member requires platform/app_id for non-owner roles", async () => {
     const { server, tools } = createToolCapture();
     registerMemberTools(server, createMockClient());
 
     const handler = tools.get("add_member")!.handler;
-    const result = await handler({
+    const tester = await handler({
       workspace: "ws",
       project: "proj",
       user: "tester@example.com",
       role: "tester",
     });
-    expect(result.isError).toBe(true);
+    expect(tester.isError).toBe(true);
+
+    const developer = await handler({
+      workspace: "ws",
+      project: "proj",
+      user: "dev@example.com",
+      role: "developer",
+    });
+    expect(developer.isError).toBe(true);
   });
 
   it("add_member handles already_joined_member gracefully", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue(
+      standardTeamsResponse,
+    );
     (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockRejectedValue(
       new DeployGateApiError({
         error: true,
@@ -731,7 +816,7 @@ describe("member tools", () => {
       workspace: "ws",
       project: "proj",
       user: "existing@example.com",
-      role: "developer",
+      role: "owner",
     });
 
     expect(result.isError).toBeUndefined();
@@ -741,6 +826,9 @@ describe("member tools", () => {
   it("add_member returns upgrade message on seat limit exceeded", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue(
+      standardTeamsResponse,
+    );
     (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockRejectedValue(
       new DeployGateApiError({
         error: true,
@@ -755,7 +843,7 @@ describe("member tools", () => {
       workspace: "ws",
       project: "proj",
       user: "new@example.com",
-      role: "developer",
+      role: "owner",
     });
 
     expect(result.isError).toBe(true);
@@ -766,6 +854,9 @@ describe("member tools", () => {
   it("add_member continues when project/team additions are upserts", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue(
+      standardTeamsResponse,
+    );
     // All three succeed (project and team are upserts, no error on duplicate)
     (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue(
       {},
@@ -783,20 +874,24 @@ describe("member tools", () => {
     });
 
     expect(result.isError).toBeUndefined();
-    // All three steps complete
+    // All three steps complete; owner skips Step 4 (no app attach).
     expect(client.addWorkspaceMember).toHaveBeenCalledOnce();
     expect(client.addProjectMember).toHaveBeenCalledOnce();
     expect(client.addTeamMember).toHaveBeenCalledWith(
       "proj",
-      "owner",
+      "Owner",
       "existing@example.com",
     );
+    expect(client.assignTeamToApp).not.toHaveBeenCalled();
     expect(result.content[0].text).toContain("owner");
   });
 
   it("add_member propagates unexpected errors", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
+    (client.getProject as ReturnType<typeof vi.fn>).mockResolvedValue(
+      standardTeamsResponse,
+    );
     (client.addWorkspaceMember as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("Network error"),
     );
@@ -809,15 +904,17 @@ describe("member tools", () => {
         project: "proj",
         user: "user@example.com",
         role: "developer",
+        platform: "android",
+        app_id: "com.example.app",
       }),
     ).rejects.toThrow("Network error");
   });
 
-  it("list_members accepts a custom (non-enum) team name", async () => {
+  it("list_team_members accepts a custom (non-enum) team name", async () => {
     const { server, tools } = createToolCapture();
     const client = createMockClient();
     registerMemberTools(server, client);
-    const handler = tools.get("list_members")!.handler;
+    const handler = tools.get("list_team_members")!.handler;
     await handler({ project: "my-project", team: "qa-custom" });
     expect(client.listTeamMembers).toHaveBeenCalledWith("my-project", "qa-custom");
   });
@@ -840,10 +937,10 @@ describe("member tools", () => {
     );
   });
 
-  it("list_members description mentions custom team names", () => {
+  it("list_team_members description mentions custom team names", () => {
     const { server, tools } = createToolCapture();
     registerMemberTools(server, createMockClient());
-    expect(tools.get("list_members")!.description.toLowerCase()).toContain("custom");
+    expect(tools.get("list_team_members")!.description.toLowerCase()).toContain("custom");
   });
 });
 

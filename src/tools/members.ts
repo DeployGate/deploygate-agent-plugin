@@ -8,7 +8,7 @@ export function registerMemberTools(
 ): void {
   server.tool(
     "add_member",
-    "Add a member to a DeployGate project with the specified role. This orchestrates multiple API calls: (1) add to workspace, (2) add to project, (3) add to team. For testers, also (4) assigns the tester team to the specified app. Handles duplicates gracefully: workspace returns 400 (already_joined_member) which is skipped, project/team additions are upserts (silent success). Free plan has a 2-member limit; exceeding it returns a 403 with upgrade guidance.",
+    "Onboarding shortcut for initial project setup. Adds a user with one of the three roles backed by the standard auto-created teams (owner / developer / tester) by orchestrating: (1) add to workspace, (2) add to project, (3) add to the role team, and (4) for non-owner roles, attach the role team to the specified app so the new member can access it. Owner role members have project-wide app access by design, so step (4) is skipped for owner. Standard team display names are locale-dependent (e.g. 'テスター' in Japanese workspaces); this tool resolves the role team by its stable `role` keyword so it works across locales. Handles duplicates gracefully (workspace `already_joined_member` is skipped; project/team additions are upserts). Free plan has a 2-member limit; exceeding it returns a 403 with upgrade guidance.",
     {
       workspace: z.string().describe("Workspace (enterprise) name"),
       project: z.string().describe("Project (organization) name"),
@@ -22,22 +22,22 @@ export function registerMemberTools(
         .enum(["ios", "android"])
         .optional()
         .describe(
-          "App platform (required when role is 'tester' to assign the tester team to the app)",
+          "App platform (required for non-owner roles, to attach the role team to the app)",
         ),
       app_id: z
         .string()
         .optional()
         .describe(
-          "App ID (required when role is 'tester' to assign the tester team to the app)",
+          "App ID (required for non-owner roles, to attach the role team to the app)",
         ),
     },
     async (args) => {
-      if (args.role === "tester" && (!args.platform || !args.app_id)) {
+      if (args.role !== "owner" && (!args.platform || !args.app_id)) {
         return {
           content: [
             {
               type: "text",
-              text: "Error: platform and app_id are required when adding a tester (needed to assign the tester team to the app)",
+              text: `Error: platform and app_id are required when adding a ${args.role} (needed to attach the ${args.role} team to the app — only the owner role has project-wide app access)`,
             },
           ],
           isError: true,
@@ -45,6 +45,27 @@ export function registerMemberTools(
       }
 
       const steps: string[] = [];
+
+      // Step 0: Resolve the standard role team's actual name. Display names are
+      // locale-dependent (e.g. "Tester" / "テスター"); the `role` field is the
+      // locale-independent identifier.
+      const projectInfo = (await client.getProject(args.project)) as {
+        organization?: { teams?: Array<{ name: string; role: string }> };
+      };
+      const teams = projectInfo?.organization?.teams ?? [];
+      const roleTeam = teams.find((t) => t.role === args.role);
+      if (!roleTeam) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: no team with role "${args.role}" found in project "${args.project}".`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      const teamName = roleTeam.name;
 
       // Step 1: Add to workspace
       try {
@@ -78,19 +99,20 @@ export function registerMemberTools(
       await client.addProjectMember(args.workspace, args.project, args.user);
       steps.push("✓ Added to project");
 
-      // Step 3: Add to team (upsert — no error on duplicate)
-      await client.addTeamMember(args.project, args.role, args.user);
-      steps.push(`✓ Added to ${args.role} team`);
+      // Step 3: Add to the role team (upsert — no error on duplicate)
+      await client.addTeamMember(args.project, teamName, args.user);
+      steps.push(`✓ Added to ${teamName} team`);
 
-      // Step 4 (tester only): Assign tester team to app
-      if (args.role === "tester" && args.platform && args.app_id) {
+      // Step 4 (non-owner only): Attach the role team to the app so the member
+      // can access it. Owner role grants project-wide app access already.
+      if (args.role !== "owner" && args.platform && args.app_id) {
         await client.assignTeamToApp(
           args.project,
           args.platform,
           args.app_id,
-          "tester",
+          teamName,
         );
-        steps.push("✓ Tester team assigned to app");
+        steps.push(`✓ ${teamName} team attached to app`);
       }
 
       return {
@@ -105,7 +127,7 @@ export function registerMemberTools(
   );
 
   server.tool(
-    "list_members",
+    "list_team_members",
     "List members of a specific team in a project. Use a built-in team name ('owner', 'developer', or 'tester') or any custom team name defined in the project.",
     {
       project: z.string().describe("Project (organization) name"),
@@ -155,7 +177,7 @@ export function registerMemberTools(
   );
 
   server.tool(
-    "remove_member",
+    "remove_team_member",
     "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project. Accepts a built-in team name ('owner', 'developer', 'tester') or any custom team name defined in the project.",
     {
       project: z.string().describe("Project (organization) name"),
