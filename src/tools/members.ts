@@ -128,13 +128,13 @@ export function registerMemberTools(
 
   server.tool(
     "list_team_members",
-    "List members of a specific team in a project. Use a built-in team name ('owner', 'developer', or 'tester') or any custom team name defined in the project.",
+    "List members of a specific team in a project. The `team` parameter is the team's actual display name (case-insensitive). Run `get_project` to discover team names in the project; auto-created team names are locale-dependent (e.g. 'Tester' / 'テスター') and any team can be renamed.",
     {
       project: z.string().describe("Project (organization) name"),
       team: z
         .string()
         .describe(
-          "Team name: 'owner', 'developer', 'tester', or a custom team name",
+          "Team display name (case-insensitive). Discover available teams via `get_project`.",
         ),
     },
     async (args) => {
@@ -147,13 +147,13 @@ export function registerMemberTools(
 
   server.tool(
     "add_team_member",
-    "Add a user to a specific team in a project. This is the ATOMIC single-step operation — it does NOT add the user to the workspace/project first, nor attach the team to an app. The user must already be a project member; otherwise the API rejects the request. Use this for adding to custom team names (or any single team). For the multi-step onboarding flow with the built-in roles (owner/developer/tester), use `add_member` instead.",
+    "Add a user to a specific team in a project. This is the ATOMIC single-step operation — it does NOT add the user to the workspace/project first, nor attach the team to an app. The user must already be a project member; otherwise the API rejects the request. For the multi-step onboarding flow that adds to workspace + project + role team (owner/developer/tester) and attaches the role team to a target app, use `add_member` instead. Run `get_project` to discover team names in the project.",
     {
       project: z.string().describe("Project (organization) name"),
       team: z
         .string()
         .describe(
-          "Team to add the user to: 'owner', 'developer', 'tester', or a custom team name",
+          "Team display name (case-insensitive). Discover available teams via `get_project`.",
         ),
       user: z
         .string()
@@ -178,13 +178,13 @@ export function registerMemberTools(
 
   server.tool(
     "remove_team_member",
-    "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project. Accepts a built-in team name ('owner', 'developer', 'tester') or any custom team name defined in the project.",
+    "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project. The `team` parameter is the team's actual display name (case-insensitive). Run `get_project` to discover team names; auto-created team names are locale-dependent (e.g. 'Tester' / 'テスター').",
     {
       project: z.string().describe("Project (organization) name"),
       team: z
         .string()
         .describe(
-          "Team to remove the member from: 'owner', 'developer', 'tester', or a custom team name",
+          "Team display name (case-insensitive). Discover available teams via `get_project`.",
         ),
       user: z
         .string()

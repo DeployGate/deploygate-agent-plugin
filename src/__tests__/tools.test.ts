@@ -937,10 +937,10 @@ describe("member tools", () => {
     );
   });
 
-  it("list_team_members description mentions custom team names", () => {
+  it("list_team_members description points to get_project for team discovery", () => {
     const { server, tools } = createToolCapture();
     registerMemberTools(server, createMockClient());
-    expect(tools.get("list_team_members")!.description.toLowerCase()).toContain("custom");
+    expect(tools.get("list_team_members")!.description).toContain("get_project");
   });
 });
 

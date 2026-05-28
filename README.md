@@ -122,9 +122,9 @@ Claude Code invokes plugin skills as slash commands. Codex invokes plugin skills
 | Tool | Description |
 |---|---|
 | `add_member` | Onboarding shortcut: add a member with a role (owner/developer/tester). Orchestrates workspace + project + role-team add, and attaches the role team to a target app for non-owner roles. Locale-aware (resolves role team by stable `role` keyword). Free plan limit: 2 members. |
-| `add_team_member` | Atomic single-step: add a user (who is already a project member) to a specific team. Accepts custom team names. |
-| `list_team_members` | List members of a specific team (built-in or custom team name). |
-| `remove_team_member` | Remove a member from a team (built-in or custom team name). |
+| `add_team_member` | Atomic single-step: add a user (who is already a project member) to a specific team in the project. |
+| `list_team_members` | List members of a specific team. Use `get_project` to discover team names. |
+| `remove_team_member` | Remove a member from a specific team in the project. |
 
 ### Shared Team Management
 
