@@ -588,7 +588,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/enterprises/${workspace}/organizations/${project}/users/${user}`,
+      `/api/enterprises/${workspace}/organizations/${project}/users/${encodeURIComponent(user)}`,
     );
   }
 
@@ -629,7 +629,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "POST",
-      `/api/organizations/${project}/teams/${team}/users`,
+      `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users`,
       { body: { user } },
     );
   }
@@ -637,7 +637,7 @@ export class DeployGateClient {
   async listTeamMembers(project: string, team: string): Promise<unknown> {
     return this.request(
       "GET",
-      `/api/organizations/${project}/teams/${team}/users`,
+      `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users`,
     );
   }
 
@@ -648,7 +648,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/organizations/${project}/teams/${team}/users/${user}`,
+      `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users/${encodeURIComponent(user)}`,
     );
   }
 
@@ -693,7 +693,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "POST",
-      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`,
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users`,
       { body: params as Record<string, unknown> },
     );
   }
@@ -704,7 +704,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "GET",
-      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`,
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users`,
     );
   }
 
@@ -715,7 +715,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users/${userId}`,
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users/${encodeURIComponent(userId)}`,
     );
   }
 

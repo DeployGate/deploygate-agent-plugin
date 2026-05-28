@@ -823,6 +823,44 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("path-segment URL encoding", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listTeamMembers encodes team names with spaces", async () => {
+      await client.listTeamMembers("proj1", "QA Testers");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/proj1/teams/QA%20Testers/users",
+      );
+    });
+
+    it("removeTeamMember encodes team and user", async () => {
+      await client.removeTeamMember("proj1", "QA Testers", "a@b.com");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/proj1/teams/QA%20Testers/users/a%40b.com",
+      );
+    });
+
+    it("removeProjectMember encodes user identifiers", async () => {
+      await client.removeProjectMember("ws1", "proj1", "a@b.com");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/organizations/proj1/users/a%40b.com",
+      );
+    });
+
+    it("removeSharedTeamMember encodes shared_team_id and user", async () => {
+      await client.removeSharedTeamMember("ws1", "All Staff", "a@b.com");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/shared_teams/All%20Staff/users/a%40b.com",
+      );
+    });
+  });
+
   describe("shared teams", () => {
     it("creates a shared team", async () => {
       mockFetch.mockResolvedValueOnce(
