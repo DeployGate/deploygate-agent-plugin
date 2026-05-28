@@ -48,10 +48,7 @@ and others use the same `mcpServers` shape):
 }
 ```
 
-Authentication is the same as the plugin: run the `login_start` tool, approve
-in the browser, then `login_wait`. The token is stored at
-`~/.config/deploygate/token` (mode 0600) and is shared with the plugin
-installs.
+Authentication is the same as the plugin — see the [Authentication](#authentication) section below for the login flow and the platform-specific token storage path. The token is shared with the plugin installs.
 
 ## Getting Started
 

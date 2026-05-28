@@ -195,10 +195,14 @@ describe("npm package (@deploygate/mcp standalone)", () => {
     expect(pkg.name).toBe("@deploygate/mcp");
   });
 
-  it("bin deploygate-mcp points at the committed zero-dep bundle, which exists", () => {
+  it("bin deploygate-mcp points at the committed zero-dep bundle, which exists and starts with a node shebang", () => {
     const bin = pkg.bin as Record<string, string>;
     expect(bin["deploygate-mcp"]).toBe("plugin/scripts/bundle.js");
-    expect(existsSync(resolve(ROOT, bin["deploygate-mcp"]))).toBe(true);
+    const bundlePath = resolve(ROOT, bin["deploygate-mcp"]);
+    expect(existsSync(bundlePath)).toBe(true);
+    expect(
+      readFileSync(bundlePath, "utf-8").startsWith("#!/usr/bin/env node"),
+    ).toBe(true);
   });
 
   it("ships only the bundle, README, and LICENSE (no plugin/agent dirs)", () => {
