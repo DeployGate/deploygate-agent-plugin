@@ -822,6 +822,24 @@ describe("member tools", () => {
     expect(client.listTeamMembers).toHaveBeenCalledWith("my-project", "qa-custom");
   });
 
+  it("add_team_member forwards arbitrary team names to client.addTeamMember", async () => {
+    const { server, tools } = createToolCapture();
+    const client = createMockClient();
+    (client.addTeamMember as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    registerMemberTools(server, client);
+    const handler = tools.get("add_team_member")!.handler;
+    await handler({
+      project: "my-project",
+      team: "qa-custom",
+      user: "alice@example.com",
+    });
+    expect(client.addTeamMember).toHaveBeenCalledWith(
+      "my-project",
+      "qa-custom",
+      "alice@example.com",
+    );
+  });
+
   it("list_members description mentions custom team names", () => {
     const { server, tools } = createToolCapture();
     registerMemberTools(server, createMockClient());

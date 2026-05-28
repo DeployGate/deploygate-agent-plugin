@@ -124,6 +124,37 @@ export function registerMemberTools(
   );
 
   server.tool(
+    "add_team_member",
+    "Add a user to a specific team in a project. This is the ATOMIC single-step operation — it does NOT add the user to the workspace/project first, nor attach the team to an app. The user must already be a project member; otherwise the API rejects the request. Use this for adding to custom team names (or any single team). For the multi-step onboarding flow with the built-in roles (owner/developer/tester), use `add_member` instead.",
+    {
+      project: z.string().describe("Project (organization) name"),
+      team: z
+        .string()
+        .describe(
+          "Team to add the user to: 'owner', 'developer', 'tester', or a custom team name",
+        ),
+      user: z
+        .string()
+        .describe("User to add (email address or username)"),
+    },
+    async (args) => {
+      const results = await client.addTeamMember(
+        args.project,
+        args.team,
+        args.user,
+      );
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Member "${args.user}" added to ${args.team} team.\n${JSON.stringify(results, null, 2)}`,
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
     "remove_member",
     "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project. Accepts a built-in team name ('owner', 'developer', 'tester') or any custom team name defined in the project.",
     {

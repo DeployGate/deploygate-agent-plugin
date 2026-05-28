@@ -122,8 +122,9 @@ Claude Code invokes plugin skills as slash commands. Codex invokes plugin skills
 | Tool | Description |
 |---|---|
 | `add_member` | Add a member with a specified role (owner/developer/tester). Orchestrates 3-4 API calls in one command. Free plan limit: 2 members. |
-| `list_members` | List members of a specific team |
-| `remove_member` | Remove a member from a team |
+| `add_team_member` | Atomic single-step: add a user (who is already a project member) to a specific team. Accepts custom team names. |
+| `list_members` | List members of a specific team (built-in or custom team name). |
+| `remove_member` | Remove a member from a team (built-in or custom team name). |
 
 ### Shared Team Management
 
