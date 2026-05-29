@@ -1,9 +1,25 @@
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { homedir } from "node:os";
+import { basename, join } from "node:path";
 import { VERSION } from "./version.js";
 
 const BASE_URL = "https://deploygate.com";
 const USER_AGENT = `deploygate-agent-plugin/${VERSION}`;
+
+/**
+ * Expand a leading "~/" (or "~\") in a path to the current user's home
+ * directory, matching common shell behavior so agents/users can pass
+ * paths like "~/certs/idp.pem". Bare "~" expands to home; anything
+ * else (including "~user/..." or absolute/relative paths) is returned
+ * unchanged. Node's `fs` APIs do not expand `~` themselves.
+ */
+export function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/") || p.startsWith("~\\")) {
+    return join(homedir(), p.slice(2));
+  }
+  return p;
+}
 
 export interface DeployGateErrorDetail {
   error: true;
@@ -432,7 +448,7 @@ export class DeployGateClient {
       ios_simulator_zip?: string;
     },
   ): Promise<unknown> {
-    const fileBuffer = await readFile(filePath);
+    const fileBuffer = await readFile(expandHome(filePath));
     const fileName = basename(filePath);
     const blob = new Blob([fileBuffer]);
 
@@ -448,7 +464,7 @@ export class DeployGateClient {
       formData.append("release_note", options.release_note);
     if (options?.disable_notify) formData.append("disable_notify", "true");
     if (options?.ios_simulator_zip) {
-      const simBuffer = await readFile(options.ios_simulator_zip);
+      const simBuffer = await readFile(expandHome(options.ios_simulator_zip));
       const simFileName = basename(options.ios_simulator_zip);
       const simBlob = new Blob([simBuffer]);
       formData.append("ios_simulator_zip", simBlob, simFileName);
@@ -748,7 +764,7 @@ export class DeployGateClient {
     workspace: string,
     filePath: string,
   ): Promise<unknown> {
-    const fileBuffer = await readFile(filePath);
+    const fileBuffer = await readFile(expandHome(filePath));
     const fileName = basename(filePath);
     const formData = new FormData();
     formData.append("idp_cert", new Blob([fileBuffer]), fileName);
@@ -840,7 +856,7 @@ export class DeployGateClient {
       keyPassword: string;
     },
   ): Promise<unknown> {
-    const fileBuffer = await readFile(params.filePath);
+    const fileBuffer = await readFile(expandHome(params.filePath));
     const fileName = basename(params.filePath);
     const formData = new FormData();
     formData.append("file", new Blob([fileBuffer]), fileName);

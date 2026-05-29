@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { DeployGateClient, DeployGateApiError } from "../client.js";
+import { DeployGateClient, DeployGateApiError, expandHome } from "../client.js";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -11,6 +13,26 @@ function mockResponse(data: unknown, status = 200) {
     json: () => Promise.resolve(data),
   };
 }
+
+describe("expandHome", () => {
+  it("returns the path unchanged when it does not start with ~", () => {
+    expect(expandHome("/abs/path")).toBe("/abs/path");
+    expect(expandHome("./relative")).toBe("./relative");
+    expect(expandHome("plain.txt")).toBe("plain.txt");
+  });
+
+  it("expands bare ~ to the home directory", () => {
+    expect(expandHome("~")).toBe(homedir());
+  });
+
+  it("expands a leading ~/ prefix", () => {
+    expect(expandHome("~/certs/idp.pem")).toBe(join(homedir(), "certs/idp.pem"));
+  });
+
+  it("does NOT expand ~user/ style paths", () => {
+    expect(expandHome("~alice/secret")).toBe("~alice/secret");
+  });
+});
 
 describe("DeployGateClient", () => {
   let client: DeployGateClient;
