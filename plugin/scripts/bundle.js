@@ -30954,7 +30954,7 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
 // dist/version.js
-var VERSION = true ? "1.5.0" : "dev";
+var VERSION = true ? "1.3.1" : "dev";
 
 // dist/client.js
 var BASE_URL = "https://deploygate.com";
