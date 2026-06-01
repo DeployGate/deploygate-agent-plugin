@@ -1,6 +1,6 @@
 {
   "name": "deploygate",
-  "version": "1.5.0",
+  "version": "1.3.1",
   "description": "DeployGate agent integration: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
   "author": {
     "name": "DeployGate",
