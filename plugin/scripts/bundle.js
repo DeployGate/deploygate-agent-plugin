@@ -30950,14 +30950,23 @@ var StdioServerTransport = class {
 
 // dist/client.js
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { homedir } from "node:os";
+import { basename, join } from "node:path";
 
 // dist/version.js
-var VERSION = true ? "1.4.0" : "dev";
+var VERSION = true ? "1.5.0" : "dev";
 
 // dist/client.js
 var BASE_URL = "https://deploygate.com";
 var USER_AGENT = `deploygate-agent-plugin/${VERSION}`;
+function expandHome(p) {
+  if (p === "~")
+    return homedir();
+  if (p.startsWith("~/") || p.startsWith("~\\")) {
+    return join(homedir(), p.slice(2));
+  }
+  return p;
+}
 var DeployGateApiError = class extends Error {
   errorType;
   because;
@@ -31012,7 +31021,8 @@ var DeployGateClient = class {
     const url2 = `${BASE_URL}${path}`;
     const headers = {
       "User-Agent": USER_AGENT,
-      Authorization: `Bearer ${this.token}`
+      Authorization: `Bearer ${this.token}`,
+      ...options?.headers ?? {}
     };
     const fetchOptions = { method, headers };
     if (options?.formData) {
@@ -31028,7 +31038,20 @@ var DeployGateClient = class {
       fetchOptions.body = params.toString();
     }
     const response = await fetch(url2, fetchOptions);
-    const data = await response.json();
+    if (response.status === 204) {
+      return null;
+    }
+    const data = await response.json().catch((err) => {
+      if (err instanceof SyntaxError) {
+        if (response.ok)
+          return {};
+        throw new DeployGateApiError({
+          error: true,
+          message: `Unexpected status ${response.status} with empty or non-JSON body`
+        });
+      }
+      throw err;
+    });
     if (data.error) {
       throw new DeployGateApiError(data);
     }
@@ -31037,6 +31060,24 @@ var DeployGateClient = class {
   // --- Auth / User info ---
   async getOrganizations() {
     return this.request("GET", "/api/organizations");
+  }
+  // --- Projects (organizations) ---
+  async getProject(project) {
+    return this.request("GET", `/api/organizations/${project}`);
+  }
+  async updateProject(project, params) {
+    return this.request("PATCH", `/api/organizations/${project}`, {
+      body: params
+    });
+  }
+  async deleteProject(project) {
+    return this.request("DELETE", `/api/organizations/${project}`);
+  }
+  async listProjectApps(project) {
+    return this.request("GET", `/api/organizations/${project}/apps`);
+  }
+  async listProjectMembers(project) {
+    return this.request("GET", `/api/organizations/${project}/members`);
   }
   // --- Device auth code flow ---
   async createDeviceCode(clientLabel, nonce) {
@@ -31114,9 +31155,60 @@ var DeployGateClient = class {
       });
     }
   }
+  // --- App detail & binaries (revisions) ---
+  appBase(owner, platform2, appId) {
+    return `/api/users/${owner}/platforms/${platform2}/apps/${appId}`;
+  }
+  async getApp(owner, platform2, appId, options) {
+    const params = new URLSearchParams();
+    if (options?.revision !== void 0)
+      params.set("revision", String(options.revision));
+    if (options?.key !== void 0)
+      params.set("key", options.key);
+    const qs = params.toString();
+    return this.request("GET", `${this.appBase(owner, platform2, appId)}${qs ? `?${qs}` : ""}`);
+  }
+  async listAppRevisions(owner, platform2, appId, options) {
+    const params = new URLSearchParams();
+    if (options?.page !== void 0)
+      params.set("page", String(options.page));
+    const qs = params.toString();
+    return this.request("GET", `${this.appBase(owner, platform2, appId)}/binaries${qs ? `?${qs}` : ""}`);
+  }
+  async getAppRevision(owner, platform2, appId, revision) {
+    return this.request("GET", `${this.appBase(owner, platform2, appId)}/binaries/${revision}`);
+  }
+  async updateAppRevision(owner, platform2, appId, revision, message) {
+    return this.request("PATCH", `${this.appBase(owner, platform2, appId)}/binaries/${revision}`, {
+      body: { message },
+      headers: { "X-DEPLOYGATE-API-VERSION": "2" }
+    });
+  }
+  async deleteAppRevision(owner, platform2, appId, revision) {
+    return this.request("DELETE", `${this.appBase(owner, platform2, appId)}/binaries/${revision}`);
+  }
+  async protectAppRevision(owner, platform2, appId, revision) {
+    return this.request("POST", `${this.appBase(owner, platform2, appId)}/binaries/${revision}/protect`);
+  }
+  async unprotectAppRevision(owner, platform2, appId, revision) {
+    return this.request("DELETE", `${this.appBase(owner, platform2, appId)}/binaries/${revision}/protect`);
+  }
+  async searchAppRevisions(owner, platform2, appId, options) {
+    const params = new URLSearchParams();
+    params.set("q", options.q);
+    if (options.page !== void 0)
+      params.set("paging[page]", String(options.page));
+    if (options.perPage !== void 0)
+      params.set("paging[per_page]", String(options.perPage));
+    return this.request("GET", `${this.appBase(owner, platform2, appId)}/binaries/search?${params.toString()}`, { headers: { "X-DEPLOYGATE-API-VERSION": "2" } });
+  }
+  // --- App members ---
+  async listAppMembers(owner, platform2, appId) {
+    return this.request("GET", `${this.appBase(owner, platform2, appId)}/members`);
+  }
   // --- App upload ---
   async uploadApp(ownerName, filePath, options) {
-    const fileBuffer = await readFile(filePath);
+    const fileBuffer = await readFile(expandHome(filePath));
     const fileName = basename(filePath);
     const blob = new Blob([fileBuffer]);
     const formData = new FormData();
@@ -31132,7 +31224,7 @@ var DeployGateClient = class {
     if (options?.disable_notify)
       formData.append("disable_notify", "true");
     if (options?.ios_simulator_zip) {
-      const simBuffer = await readFile(options.ios_simulator_zip);
+      const simBuffer = await readFile(expandHome(options.ios_simulator_zip));
       const simFileName = basename(options.ios_simulator_zip);
       const simBlob = new Blob([simBuffer]);
       formData.append("ios_simulator_zip", simBlob, simFileName);
@@ -31157,35 +31249,61 @@ var DeployGateClient = class {
   async deleteDistribution(accessKey) {
     return this.request("DELETE", `/api/distributions/${accessKey}`);
   }
+  async deleteDistributionByName(owner, platform2, appId, distributionName) {
+    const qs = new URLSearchParams({ distribution_name: distributionName }).toString();
+    return this.request("DELETE", `/api/users/${owner}/platforms/${platform2}/apps/${appId}/distributions?${qs}`);
+  }
+  async updateDistributionRevision(accessKey, params) {
+    return this.request("POST", `/api/distributions/${accessKey}/packages`, {
+      body: params
+    });
+  }
   // --- iOS UDIDs ---
   async getUdids(ownerName, appId) {
     return this.request("GET", `/api/users/${ownerName}/platforms/ios/apps/${appId}/udids`);
   }
   // --- Workspace member management ---
-  async addWorkspaceMember(workspace, user) {
+  async listWorkspaceMembers(workspace) {
+    return this.request("GET", `/api/enterprises/${workspace}/users`);
+  }
+  async getWorkspaceMember(workspace, id) {
+    return this.request("GET", `/api/enterprises/${workspace}/users/${encodeURIComponent(id)}`);
+  }
+  async addWorkspaceMember(workspace, user, options) {
     return this.request("POST", `/api/enterprises/${workspace}/users`, {
-      body: { user }
+      body: { user, ...options }
     });
   }
   async removeWorkspaceMember(workspace, user) {
-    return this.request("DELETE", `/api/enterprises/${workspace}/users/${user}`);
+    return this.request("DELETE", `/api/enterprises/${workspace}/users/${encodeURIComponent(user)}`);
   }
   // --- Project member management ---
   async addProjectMember(workspace, project, user) {
     return this.request("POST", `/api/enterprises/${workspace}/organizations/${project}/users`, { body: { user } });
   }
   async removeProjectMember(workspace, project, user) {
-    return this.request("DELETE", `/api/enterprises/${workspace}/organizations/${project}/users/${user}`);
+    return this.request("DELETE", `/api/enterprises/${workspace}/organizations/${project}/users/${encodeURIComponent(user)}`);
+  }
+  async listWorkspaceProjects(workspace) {
+    return this.request("GET", `/api/enterprises/${workspace}/organizations`);
+  }
+  async createProject(workspace, params) {
+    return this.request("POST", `/api/enterprises/${workspace}/organizations`, {
+      body: params
+    });
+  }
+  async listWorkspaceProjectMembers(workspace, project) {
+    return this.request("GET", `/api/enterprises/${workspace}/organizations/${project}/users`);
   }
   // --- Team member management ---
   async addTeamMember(project, team, user) {
-    return this.request("POST", `/api/organizations/${project}/teams/${team}/users`, { body: { user } });
+    return this.request("POST", `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users`, { body: { user } });
   }
   async listTeamMembers(project, team) {
-    return this.request("GET", `/api/organizations/${project}/teams/${team}/users`);
+    return this.request("GET", `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users`);
   }
   async removeTeamMember(project, team, user) {
-    return this.request("DELETE", `/api/organizations/${project}/teams/${team}/users/${user}`);
+    return this.request("DELETE", `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users/${encodeURIComponent(user)}`);
   }
   // --- App team assignment ---
   async assignTeamToApp(project, platform2, appId, team) {
@@ -31193,29 +31311,87 @@ var DeployGateClient = class {
   }
   // --- Shared teams ---
   async createSharedTeam(workspace, name) {
-    return this.request("POST", `/api/enterprises/${workspace}/sharedteams`, {
+    return this.request("POST", `/api/enterprises/${workspace}/shared_teams`, {
       body: { name }
     });
   }
+  async listSharedTeams(workspace) {
+    return this.request("GET", `/api/enterprises/${workspace}/shared_teams`);
+  }
+  async deleteSharedTeam(workspace, team) {
+    return this.request("DELETE", `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(team)}`);
+  }
   async addSharedTeamMember(workspace, sharedTeamId, params) {
-    return this.request("POST", `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`, { body: params });
+    return this.request("POST", `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users`, { body: params });
   }
   async listSharedTeamMembers(workspace, sharedTeamId) {
-    return this.request("GET", `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`);
+    return this.request("GET", `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users`);
   }
   async removeSharedTeamMember(workspace, sharedTeamId, userId) {
-    return this.request("DELETE", `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users/${userId}`);
+    return this.request("DELETE", `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users/${encodeURIComponent(userId)}`);
   }
   async assignSharedTeamToApp(project, platform2, appId, team) {
-    return this.request("POST", `/api/organizations/${project}/platforms/${platform2}/apps/${appId}/sharedteams`, { body: { team } });
+    return this.request("POST", `/api/organizations/${project}/platforms/${platform2}/apps/${appId}/shared_teams`, { body: { team } });
+  }
+  // --- Workspace SAML settings ---
+  async updateSamlCertificate(workspace, filePath) {
+    const fileBuffer = await readFile(expandHome(filePath));
+    const fileName = basename(filePath);
+    const formData = new FormData();
+    formData.append("idp_cert", new Blob([fileBuffer]), fileName);
+    return this.request("PUT", `/api/enterprises/${workspace}/saml_settings/update_certificate`, { formData });
+  }
+  // --- App teams (organizations) ---
+  orgAppBase(project, platform2, appId) {
+    return `/api/organizations/${project}/platforms/${platform2}/apps/${appId}`;
+  }
+  async listAppTeams(project, platform2, appId) {
+    return this.request("GET", `${this.orgAppBase(project, platform2, appId)}/teams`);
+  }
+  async removeAppTeam(project, platform2, appId, team) {
+    return this.request("DELETE", `${this.orgAppBase(project, platform2, appId)}/teams/${encodeURIComponent(team)}`);
+  }
+  async listAppSharedTeams(project, platform2, appId) {
+    return this.request("GET", `${this.orgAppBase(project, platform2, appId)}/shared_teams`);
+  }
+  async removeAppSharedTeam(project, platform2, appId, team) {
+    return this.request("DELETE", `${this.orgAppBase(project, platform2, appId)}/shared_teams/${encodeURIComponent(team)}`);
+  }
+  // --- Android keystores ---
+  keystoreBase(owner, appId) {
+    return `/api/users/${owner}/platforms/android/apps/${appId}/keystores`;
+  }
+  async getKeystore(owner, appId) {
+    return this.request("GET", this.keystoreBase(owner, appId));
+  }
+  async createKeystore(owner, appId) {
+    return this.request("POST", this.keystoreBase(owner, appId));
+  }
+  async deleteKeystore(owner, appId) {
+    return this.request("DELETE", this.keystoreBase(owner, appId));
+  }
+  async downloadKeystore(owner, appId) {
+    return this.request("GET", `${this.keystoreBase(owner, appId)}/download`);
+  }
+  async updateKeystore(owner, appId, params) {
+    const fileBuffer = await readFile(expandHome(params.filePath));
+    const fileName = basename(params.filePath);
+    const formData = new FormData();
+    formData.append("file", new Blob([fileBuffer]), fileName);
+    formData.append("alias_name", params.aliasName);
+    formData.append("keystore_password", params.keystorePassword);
+    formData.append("key_password", params.keyPassword);
+    return this.request("PUT", this.keystoreBase(owner, appId), {
+      formData
+    });
   }
 };
 
 // dist/token-store.js
 import { mkdir, rename, rm, writeFile, readFile as readFile2, chmod } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
-import { homedir, platform } from "node:os";
-import { dirname, join } from "node:path";
+import { homedir as homedir2, platform } from "node:os";
+import { dirname, join as join2 } from "node:path";
 var TokenStore = class _TokenStore {
   filePath;
   constructor(filePath = _TokenStore.defaultPath()) {
@@ -31223,11 +31399,11 @@ var TokenStore = class _TokenStore {
   }
   static defaultPath() {
     if (platform() === "win32") {
-      const appData = process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
-      return join(appData, "deploygate", "token");
+      const appData = process.env.APPDATA ?? join2(homedir2(), "AppData", "Roaming");
+      return join2(appData, "deploygate", "token");
     }
-    const base = process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-    return join(base, "deploygate", "token");
+    const base = process.env.XDG_CONFIG_HOME ?? join2(homedir2(), ".config");
+    return join2(base, "deploygate", "token");
   }
   path() {
     return this.filePath;
@@ -31491,7 +31667,7 @@ function registerUploadTools(server2, client2) {
 
 // dist/tools/distributions.js
 function registerDistributionTools(server2, client2) {
-  server2.tool("create_distribution", "Create a new distribution page for an app. Returns the access_key which is used as the distribution page identifier. URL: https://deploygate.com/distributions/{access_key}", {
+  server2.tool("create_distribution", "Create a new distribution page for an app. Returns the access_key which is used as the distribution page identifier. URL: https://deploygate.com/distributions/{access_key} If the app has reached its maximum number of distribution pages, the API returns 400 (exceed the maximum number of distributions). When revision is omitted, the latest build is used.", {
     owner_name: external_exports.string().describe("Owner name (user or project)"),
     platform: external_exports.enum(["ios", "android"]).describe("App platform"),
     app_id: external_exports.string().describe("App ID (package name or bundle identifier)"),
@@ -31532,16 +31708,20 @@ function registerDistributionTools(server2, client2) {
     access_key: external_exports.string().describe("Distribution page access_key (distribution_key)"),
     title: external_exports.string().max(255).optional().describe("New title"),
     active: external_exports.boolean().describe("Whether the distribution page is active (required)"),
-    release_scope: external_exports.enum(["public", "unlisted", "passcode", "authorized_only"]).describe("Access scope: public, unlisted (default), passcode, or authorized_only (required)"),
+    release_scope: external_exports.enum(["public", "unlisted", "passcode", "authorized_only"]).describe("Access scope: public, unlisted (default), passcode, or authorized_only (required). 'authorized_only' is only valid for project/workspace-owned apps whose plan supports it (personal apps support public/unlisted/passcode only), and cannot be set if the distribution page already has testers (422). When 'passcode' is chosen, the passcode parameter is required."),
     passcode: external_exports.string().optional().describe("Passcode for the distribution page (required when release_scope is 'passcode')"),
-    release_note: external_exports.string().optional().describe("Release note for this distribution")
+    release_note: external_exports.string().optional().describe("Release note for this distribution"),
+    ip_restriction_enable: external_exports.boolean().optional().describe("Enable IP address restriction. Only available for apps owned by a project/workspace (Group) and when the feature is enabled for that workspace; personal (user-owned) apps do not support this and the API will reject it."),
+    ip_restriction: external_exports.string().optional().describe("Comma-separated allowed IPs/CIDRs, e.g. '10.0.0.0/24,192.168.1.1'")
   }, async (args) => {
     const results = await client2.updateDistribution(args.access_key, {
       title: args.title,
       active: args.active,
       release_scope: args.release_scope,
       passcode: args.passcode,
-      release_note: args.release_note
+      release_note: args.release_note,
+      ip_restriction_enable: args.ip_restriction_enable,
+      ip_restriction: args.ip_restriction
     });
     return {
       content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
@@ -31554,6 +31734,26 @@ function registerDistributionTools(server2, client2) {
     return {
       content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
     };
+  });
+  server2.tool("delete_distribution_by_name", "Delete a distribution page by its title (name) within an app. Returns 404 if no page matches the name, and 400 if more than one page shares the name (in that case delete by access_key with delete_distribution instead). Only the distribution page is removed; uploaded builds are preserved.", {
+    owner_name: external_exports.string().describe("Owner name (user or project)"),
+    platform: external_exports.enum(["ios", "android"]).describe("App platform"),
+    app_id: external_exports.string().describe("App ID (package name or bundle identifier)"),
+    distribution_name: external_exports.string().describe("Title of the distribution page to delete")
+  }, async (args) => {
+    const results = await client2.deleteDistributionByName(args.owner_name, args.platform, args.app_id, args.distribution_name);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("update_distribution_revision", "Change which build revision a distribution page serves. Returns 404 if the revision does not exist in the app. Requires app admin permission. Re-pointing moves the page's automatic protection to the new revision, which frees the previously-served revision for deletion.", {
+    access_key: external_exports.string().describe("Distribution page access_key (distribution_key)"),
+    revision: external_exports.number().describe("Revision number to assign to the distribution page"),
+    release_note: external_exports.string().optional().describe("Release note for this revision")
+  }, async (args) => {
+    const results = await client2.updateDistributionRevision(args.access_key, {
+      revision: args.revision,
+      release_note: args.release_note
+    });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
 }
 
@@ -31630,26 +31830,41 @@ ${url2}`
 
 // dist/tools/members.js
 function registerMemberTools(server2, client2) {
-  server2.tool("add_member", "Add a member to a DeployGate project with the specified role. This orchestrates multiple API calls: (1) add to workspace, (2) add to project, (3) add to team. For testers, also (4) assigns the tester team to the specified app. Handles duplicates gracefully: workspace returns 400 (already_joined_member) which is skipped, project/team additions are upserts (silent success). Free plan has a 2-member limit; exceeding it returns a 403 with upgrade guidance.", {
+  server2.tool("add_member", "Onboarding shortcut for initial project setup. Adds a user with one of the three roles backed by the standard auto-created teams (owner / developer / tester) by orchestrating: (1) add to workspace, (2) add to project, (3) add to the role team, and (4) for non-owner roles, attach the role team to the specified app so the new member can access it. Owner role members have project-wide app access by design, so step (4) is skipped for owner. Standard team display names are locale-dependent (e.g. '\u30C6\u30B9\u30BF\u30FC' in Japanese workspaces); this tool resolves the role team by its stable `role` keyword so it works across locales. Handles duplicates gracefully (workspace `already_joined_member` is skipped; project/team additions are upserts). Free plan has a 2-member limit; exceeding it returns a 403 with upgrade guidance.", {
     workspace: external_exports.string().describe("Workspace (enterprise) name"),
     project: external_exports.string().describe("Project (organization) name"),
     user: external_exports.string().describe("User to add (email address or username)"),
     role: external_exports.enum(["owner", "developer", "tester"]).describe("Role to assign: owner, developer, or tester"),
-    platform: external_exports.enum(["ios", "android"]).optional().describe("App platform (required when role is 'tester' to assign the tester team to the app)"),
-    app_id: external_exports.string().optional().describe("App ID (required when role is 'tester' to assign the tester team to the app)")
+    platform: external_exports.enum(["ios", "android"]).optional().describe("App platform (required for non-owner roles, to attach the role team to the app)"),
+    app_id: external_exports.string().optional().describe("App ID (required for non-owner roles, to attach the role team to the app)")
   }, async (args) => {
-    if (args.role === "tester" && (!args.platform || !args.app_id)) {
+    if (args.role !== "owner" && (!args.platform || !args.app_id)) {
       return {
         content: [
           {
             type: "text",
-            text: "Error: platform and app_id are required when adding a tester (needed to assign the tester team to the app)"
+            text: `Error: platform and app_id are required when adding a ${args.role} (needed to attach the ${args.role} team to the app \u2014 only the owner role has project-wide app access)`
           }
         ],
         isError: true
       };
     }
     const steps = [];
+    const projectInfo = await client2.getProject(args.project);
+    const teams = projectInfo?.organization?.teams ?? [];
+    const roleTeam = teams.find((t) => t.role === args.role);
+    if (!roleTeam) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: no team with role "${args.role}" found in project "${args.project}".`
+          }
+        ],
+        isError: true
+      };
+    }
+    const teamName = roleTeam.name;
     try {
       await client2.addWorkspaceMember(args.workspace, args.user);
       steps.push("\u2713 Added to workspace");
@@ -31672,11 +31887,11 @@ function registerMemberTools(server2, client2) {
     }
     await client2.addProjectMember(args.workspace, args.project, args.user);
     steps.push("\u2713 Added to project");
-    await client2.addTeamMember(args.project, args.role, args.user);
-    steps.push(`\u2713 Added to ${args.role} team`);
-    if (args.role === "tester" && args.platform && args.app_id) {
-      await client2.assignTeamToApp(args.project, args.platform, args.app_id, "tester");
-      steps.push("\u2713 Tester team assigned to app");
+    await client2.addTeamMember(args.project, teamName, args.user);
+    steps.push(`\u2713 Added to ${teamName} team`);
+    if (args.role !== "owner" && args.platform && args.app_id) {
+      await client2.assignTeamToApp(args.project, args.platform, args.app_id, teamName);
+      steps.push(`\u2713 ${teamName} team attached to app`);
     }
     return {
       content: [
@@ -31688,18 +31903,34 @@ ${steps.join("\n")}`
       ]
     };
   });
-  server2.tool("list_members", "List members of a specific team in a project.", {
+  server2.tool("list_team_members", "List members of a specific team in a project. The `team` parameter is the team's actual display name (case-insensitive). Run `get_project` to discover team names in the project; auto-created team names are locale-dependent (e.g. 'Tester' / '\u30C6\u30B9\u30BF\u30FC') and any team can be renamed.", {
     project: external_exports.string().describe("Project (organization) name"),
-    team: external_exports.enum(["owner", "developer", "tester"]).describe("Team name to list members from")
+    team: external_exports.string().describe("Team display name (case-insensitive). Discover available teams via `get_project`.")
   }, async (args) => {
     const results = await client2.listTeamMembers(args.project, args.team);
     return {
       content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
     };
   });
-  server2.tool("remove_member", "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project.", {
+  server2.tool("add_team_member", "Add a user to a specific team in a project. This is the ATOMIC single-step operation \u2014 it does NOT add the user to the workspace/project first, nor attach the team to an app. The user must already be a project member; otherwise the API rejects the request. For the multi-step onboarding flow that adds to workspace + project + role team (owner/developer/tester) and attaches the role team to a target app, use `add_member` instead. Run `get_project` to discover team names in the project.", {
     project: external_exports.string().describe("Project (organization) name"),
-    team: external_exports.enum(["owner", "developer", "tester"]).describe("Team to remove the member from"),
+    team: external_exports.string().describe("Team display name (case-insensitive). Discover available teams via `get_project`."),
+    user: external_exports.string().describe("User to add (email address or username)")
+  }, async (args) => {
+    const results = await client2.addTeamMember(args.project, args.team, args.user);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Member "${args.user}" added to ${args.team} team.
+${JSON.stringify(results, null, 2)}`
+        }
+      ]
+    };
+  });
+  server2.tool("remove_team_member", "Remove a member from a team. This removes the user from the specified team only; they remain in the workspace and project. The `team` parameter is the team's actual display name (case-insensitive). Run `get_project` to discover team names; auto-created team names are locale-dependent (e.g. 'Tester' / '\u30C6\u30B9\u30BF\u30FC').", {
+    project: external_exports.string().describe("Project (organization) name"),
+    team: external_exports.string().describe("Team display name (case-insensitive). Discover available teams via `get_project`."),
     user: external_exports.string().describe("User to remove (email address or username)")
   }, async (args) => {
     const results = await client2.removeTeamMember(args.project, args.team, args.user);
@@ -31764,6 +31995,306 @@ function registerSharedTeamTools(server2, client2) {
       content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
     };
   });
+  server2.tool("list_shared_teams", "List the shared teams in a workspace (enterprise). Requires workspace management permission.", { workspace: external_exports.string().describe("Workspace (enterprise) name") }, async (args) => {
+    const results = await client2.listSharedTeams(args.workspace);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("delete_shared_team", "Delete a shared team from a workspace (enterprise). DESTRUCTIVE. Returns 400 if the team does not exist.", {
+    workspace: external_exports.string().describe("Workspace (enterprise) name"),
+    team: external_exports.string().describe("Shared team name to delete")
+  }, async (args) => {
+    const results = await client2.deleteSharedTeam(args.workspace, args.team);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_shared_team_members", "List the members of a workspace shared team. Requires workspace management permission.", {
+    workspace: external_exports.string().describe("Workspace (enterprise) name"),
+    shared_team_id: external_exports.string().describe("Shared team id")
+  }, async (args) => {
+    const results = await client2.listSharedTeamMembers(args.workspace, args.shared_team_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("remove_shared_team_member", "Remove a member from a workspace shared team. DESTRUCTIVE. Returns 404 if the user is not a member of the shared team.", {
+    workspace: external_exports.string().describe("Workspace (enterprise) name"),
+    shared_team_id: external_exports.string().describe("Shared team id"),
+    user: external_exports.string().describe("Member to remove (username or email)")
+  }, async (args) => {
+    const results = await client2.removeSharedTeamMember(args.workspace, args.shared_team_id, args.user);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/apps.js
+var ownerArg = external_exports.string().describe("Owner name (user or project)");
+var platformArg = external_exports.enum(["ios", "android"]).describe("App platform");
+var appIdArg = external_exports.string().describe("App ID (package name or bundle identifier)");
+function registerAppTools(server2, client2) {
+  server2.tool("get_app", "Get details of an app, optionally for a specific revision.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    revision: external_exports.number().optional().describe("Specific revision to inspect")
+  }, async (args) => {
+    const results = await client2.getApp(args.owner_name, args.platform, args.app_id, { revision: args.revision });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_app_revisions", "List uploaded build revisions (binaries) of an app, newest first (50 per page). Only revisions within the storage retention period are returned; older auto-pruned builds are not listed.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    page: external_exports.number().optional().describe("Page number (default 1)")
+  }, async (args) => {
+    const results = await client2.listAppRevisions(args.owner_name, args.platform, args.app_id, { page: args.page });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("get_app_revision", "Get details of a specific build revision (binary) of an app. Returns 404 if the revision number does not exist.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    revision: external_exports.number().describe("Revision number")
+  }, async (args) => {
+    const results = await client2.getAppRevision(args.owner_name, args.platform, args.app_id, args.revision);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("update_app_revision", "Update the message (memo) of a build revision. Only the message can be changed.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    revision: external_exports.number().describe("Revision number"),
+    message: external_exports.string().describe("New message/memo for the revision")
+  }, async (args) => {
+    const results = await client2.updateAppRevision(args.owner_name, args.platform, args.app_id, args.revision, args.message);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("delete_app_revision", "Delete a build revision (binary). The API rejects deletion (HTTP 400) of: (1) the latest revision ('cannot delete the latest binary'), and (2) any protected revision ('cannot delete a protected binary'). A revision currently served by a distribution page is automatically protected and therefore cannot be deleted while in use \u2014 first repoint that distribution to another revision (update_distribution_revision) or delete the distribution page (delete_distribution / delete_distribution_by_name). Note: unprotect_app_revision only removes MANUAL protection, not a distribution's protection.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    revision: external_exports.number().describe("Revision number to delete")
+  }, async (args) => {
+    const results = await client2.deleteAppRevision(args.owner_name, args.platform, args.app_id, args.revision);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("protect_app_revision", "Add manual protection to a build revision so it is excluded from automatic deletion (retention pruning). Fails (403) if the app has reached its maximum number of protected revisions.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    revision: external_exports.number().describe("Revision number to protect")
+  }, async (args) => {
+    const results = await client2.protectAppRevision(args.owner_name, args.platform, args.app_id, args.revision);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("unprotect_app_revision", "Remove MANUAL deletion protection from a build revision (the protection added by protect_app_revision). This does NOT remove the automatic protection a revision gets while it is served by a distribution page \u2014 for that, repoint or delete the distribution.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    revision: external_exports.number().describe("Revision number to unprotect")
+  }, async (args) => {
+    const results = await client2.unprotectAppRevision(args.owner_name, args.platform, args.app_id, args.revision);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("search_app_revisions", "Search build revisions of an app by a query string. Only revisions within the storage retention period are searched.", {
+    owner_name: ownerArg,
+    platform: platformArg,
+    app_id: appIdArg,
+    q: external_exports.string().describe("Search query"),
+    page: external_exports.number().optional().describe("Page number"),
+    per_page: external_exports.number().optional().describe("Items per page")
+  }, async (args) => {
+    const results = await client2.searchAppRevisions(args.owner_name, args.platform, args.app_id, { q: args.q, page: args.page, perPage: args.per_page });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/app-members.js
+var ownerArg2 = external_exports.string().describe("Owner name (user or project)");
+var platformArg2 = external_exports.enum(["ios", "android"]).describe("App platform");
+var appIdArg2 = external_exports.string().describe("App ID (package name or bundle identifier)");
+function registerAppMemberTools(server2, client2) {
+  server2.tool("list_app_members", "List members of an app with usage quota (used/max). For personal (user-owned) apps this lists individual collaborators; for project/workspace (Group) apps it also includes the teams attached to the app.", { owner_name: ownerArg2, platform: platformArg2, app_id: appIdArg2 }, async (args) => {
+    const results = await client2.listAppMembers(args.owner_name, args.platform, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_app_teams", "List the regular (non-shared) teams attached to an app in a project. owner_name is the project (organization) name. Returns 403 if your API token lacks permission on the app.", { owner_name: external_exports.string().describe("Project (organization) name"), platform: platformArg2, app_id: appIdArg2 }, async (args) => {
+    const results = await client2.listAppTeams(args.owner_name, args.platform, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("remove_app_team", "Detach a team from an app; the team's members lose access granted via that team. owner_name is the project name, team is the team name. DESTRUCTIVE. The owner team cannot be detached (403). Returns 400 if the team is not attached to the app.", {
+    owner_name: external_exports.string().describe("Project (organization) name"),
+    platform: platformArg2,
+    app_id: appIdArg2,
+    team: external_exports.string().describe("Team name to detach from the app")
+  }, async (args) => {
+    const results = await client2.removeAppTeam(args.owner_name, args.platform, args.app_id, args.team);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_app_shared_teams", "List the workspace shared teams attached to an app. Only valid for apps in an Enterprise (workspace) organization \u2014 returns 400 otherwise. owner_name is the project name. Returns 403 if you lack permission.", { owner_name: external_exports.string().describe("Project (organization) name"), platform: platformArg2, app_id: appIdArg2 }, async (args) => {
+    const results = await client2.listAppSharedTeams(args.owner_name, args.platform, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("remove_app_shared_team", "Detach a workspace shared team from an app. Only valid for apps in an Enterprise (workspace) organization \u2014 returns 400 otherwise. DESTRUCTIVE. The owner team cannot be detached (403). Returns 400 if the shared team is not attached.", {
+    owner_name: external_exports.string().describe("Project (organization) name"),
+    platform: platformArg2,
+    app_id: appIdArg2,
+    team: external_exports.string().describe("Shared team name to detach from the app")
+  }, async (args) => {
+    const results = await client2.removeAppSharedTeam(args.owner_name, args.platform, args.app_id, args.team);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/keystores.js
+var ownerArg3 = external_exports.string().describe("Owner name (user or project)");
+var appIdArg3 = external_exports.string().describe("Android app ID (package name)");
+function registerKeystoreTools(server2, client2) {
+  server2.tool("get_keystore", "Get the certificate fingerprints (md5/sha1/sha256/checksum) of an Android app's signing keystore. Android apps only. Returns 404 if the app has no keystore.", { owner_name: ownerArg3, app_id: appIdArg3 }, async (args) => {
+    const results = await client2.getKeystore(args.owner_name, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("create_keystore", "Generate a debug signing keystore for an Android app (commonly-used debug config: alias 'androiddebugkey', password 'android'). Android apps only; requires write permission. If the app already has a keystore this is a no-op that returns a message saying so (use update_keystore to replace).", { owner_name: ownerArg3, app_id: appIdArg3 }, async (args) => {
+    const results = await client2.createKeystore(args.owner_name, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("update_keystore", "Upload/replace an Android app's signing keystore from a local keystore file. Android apps only; requires write permission. Returns 400 if the keystore file or its credentials (alias/passwords) are invalid.", {
+    owner_name: ownerArg3,
+    app_id: appIdArg3,
+    file_path: external_exports.string().describe("Local path to the keystore file"),
+    alias_name: external_exports.string().describe("Key alias name"),
+    keystore_password: external_exports.string().describe("Keystore password"),
+    key_password: external_exports.string().describe("Key password")
+  }, async (args) => {
+    const results = await client2.updateKeystore(args.owner_name, args.app_id, {
+      filePath: args.file_path,
+      aliasName: args.alias_name,
+      keystorePassword: args.keystore_password,
+      keyPassword: args.key_password
+    });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("delete_keystore", "Delete an Android app's signing keystore. Android apps only; requires write permission. Returns 404 if the app has no keystore.", { owner_name: ownerArg3, app_id: appIdArg3 }, async (args) => {
+    const results = await client2.deleteKeystore(args.owner_name, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("download_keystore", "Get a download URL and checksum for an Android app's signing keystore. Android apps only. Returns 404 if the app has no keystore.", { owner_name: ownerArg3, app_id: appIdArg3 }, async (args) => {
+    const results = await client2.downloadKeystore(args.owner_name, args.app_id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/projects.js
+var projectArg = external_exports.string().describe("Project (organization) name");
+function registerProjectTools(server2, client2) {
+  server2.tool("get_project", "Get a project (organization)'s details (id, name, description). Returns 403 if your API token lacks access to the project, or 401 if the project's plan has expired.", { project: projectArg }, async (args) => {
+    const results = await client2.getProject(args.project);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("update_project", "Update a project (organization)'s display name and/or description. Provide at least one of display_name or description. Returns 400 on validation failure, or 403 if you lack permission on the project.", {
+    project: projectArg,
+    display_name: external_exports.string().optional().describe("New display name for the project"),
+    description: external_exports.string().optional().describe("New description for the project")
+  }, async (args) => {
+    const results = await client2.updateProject(args.project, {
+      display_name: args.display_name,
+      description: args.description
+    });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("delete_project", "Delete a project (organization). DESTRUCTIVE and irreversible: removes the project and disables all of its pending invitations. Returns 403 if you lack permission, or 422 if deletion fails.", { project: projectArg }, async (args) => {
+    const results = await client2.deleteProject(args.project);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_project_apps", "List the apps in a project (organization) that are visible to your API token. Returns 403 if you lack access to the project.", { project: projectArg }, async (args) => {
+    const results = await client2.listProjectApps(args.project);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_project_members", "List all users that belong to a project (organization). Returns 403 if you lack permission on the project. (To list members of a single team, use list_team_members.)", { project: projectArg }, async (args) => {
+    const results = await client2.listProjectMembers(args.project);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/workspace-members.js
+var workspaceArg = external_exports.string().describe("Workspace (enterprise) name");
+function registerWorkspaceMemberTools(server2, client2) {
+  server2.tool("list_workspace_members", "List all members of a workspace (enterprise). Requires workspace management permission (403/404 otherwise).", { workspace: workspaceArg }, async (args) => {
+    const results = await client2.listWorkspaceMembers(args.workspace);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("get_workspace_member", "Get a single workspace (enterprise) member by name or email (must be at least 3 characters). Returns 400 if no matching member is found.", { workspace: workspaceArg, id: external_exports.string().describe("Member name or email") }, async (args) => {
+    const results = await client2.getWorkspaceMember(args.workspace, args.id);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("add_workspace_member", "Invite/add a member to a workspace (enterprise). Requires a USER API token (not a workspace token). Set role='guest' for a guest member. Returns 400 if already a member, 403 if you lack invite permission or the plan's member seats are exceeded; SSO/flexible workspaces require an email address.", {
+    workspace: workspaceArg,
+    user: external_exports.string().describe("User email or username to add"),
+    full_name: external_exports.string().optional().describe("Optional full name for the invitee"),
+    role: external_exports.string().optional().describe("Optional role; use 'guest' to invite a guest member")
+  }, async (args) => {
+    const results = await client2.addWorkspaceMember(args.workspace, args.user, {
+      full_name: args.full_name,
+      role: args.role
+    });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("remove_workspace_member", "Remove a member from a workspace (enterprise) entirely. Requires a USER API token. DESTRUCTIVE. You cannot remove yourself (403); a non-member returns 400.", { workspace: workspaceArg, user: external_exports.string().describe("Member name or email to remove") }, async (args) => {
+    const results = await client2.removeWorkspaceMember(args.workspace, args.user);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/workspace-projects.js
+var workspaceArg2 = external_exports.string().describe("Workspace (enterprise) name");
+var projectArg2 = external_exports.string().describe("Project (organization) name");
+function registerWorkspaceProjectTools(server2, client2) {
+  server2.tool("list_workspace_projects", "List the projects (organizations) under a workspace (enterprise). Requires workspace management permission.", { workspace: workspaceArg2 }, async (args) => {
+    const results = await client2.listWorkspaceProjects(args.workspace);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("create_project", "Create a new project (organization) in a workspace (enterprise). Requires a USER API token. 'name' must be 3-28 chars (letters/digits/hyphens/underscores, starting and ending with a letter or digit) and GLOBALLY unique (400 if already in use). 'owner_name_or_email' must be an existing workspace member (404 otherwise). 403 if the plan's project limit is exceeded. display_name defaults to name.", {
+    workspace: workspaceArg2,
+    owner_name_or_email: external_exports.string().describe("Workspace member to set as the project owner (username or email)"),
+    name: external_exports.string().describe("Project name (3-28 chars, globally unique)"),
+    display_name: external_exports.string().optional().describe("Optional display name (defaults to name)"),
+    description: external_exports.string().optional().describe("Optional description")
+  }, async (args) => {
+    const results = await client2.createProject(args.workspace, {
+      owner_name_or_email: args.owner_name_or_email,
+      name: args.name,
+      display_name: args.display_name,
+      description: args.description
+    });
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("list_workspace_project_members", "List the members of a project (organization) within a workspace. Returns 401/403 if you lack permission.", { workspace: workspaceArg2, project: projectArg2 }, async (args) => {
+    const results = await client2.listWorkspaceProjectMembers(args.workspace, args.project);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("add_project_member", "Add a workspace member to a project (organization) as a direct project member. The user must already be a workspace member (401 otherwise); 403 if you lack permission. This is the project-level membership; to add to a specific team use add_member.", {
+    workspace: workspaceArg2,
+    project: projectArg2,
+    user: external_exports.string().describe("Workspace member to add (username or email)")
+  }, async (args) => {
+    const results = await client2.addProjectMember(args.workspace, args.project, args.user);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+  server2.tool("remove_project_member", "Remove a member from a project (organization). DESTRUCTIVE. Returns 403 if the user is not a project member or you lack permission. This removes project-level membership; to remove from a single team use remove_team_member.", {
+    workspace: workspaceArg2,
+    project: projectArg2,
+    user: external_exports.string().describe("Member to remove (username or email)")
+  }, async (args) => {
+    const results = await client2.removeProjectMember(args.workspace, args.project, args.user);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+// dist/tools/workspace-saml.js
+function registerWorkspaceSamlTools(server2, client2) {
+  server2.tool("update_saml_certificate", "Update a workspace's SAML IdP certificate from a local PEM file. Requires a USER API token with workspace ADMIN permission. CAUTION: uploading an incorrect certificate can break SSO login for the whole workspace. Returns 400 for an invalid certificate file, 403 if not an admin or the plan has expired, 404 if SAML is not configured.", {
+    workspace: external_exports.string().describe("Workspace (enterprise) name"),
+    file_path: external_exports.string().describe("Local path to the IdP X.509 certificate (PEM) file")
+  }, async (args) => {
+    const results = await client2.updateSamlCertificate(args.workspace, args.file_path);
+    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+  });
 }
 
 // dist/index.js
@@ -31781,5 +32312,12 @@ registerUdidTools(server, client);
 registerNotificationTools(server);
 registerMemberTools(server, client);
 registerSharedTeamTools(server, client);
+registerAppTools(server, client);
+registerAppMemberTools(server, client);
+registerKeystoreTools(server, client);
+registerProjectTools(server, client);
+registerWorkspaceMemberTools(server, client);
+registerWorkspaceProjectTools(server, client);
+registerWorkspaceSamlTools(server, client);
 var transport = new StdioServerTransport();
 await server.connect(transport);
