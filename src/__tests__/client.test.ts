@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { DeployGateClient, DeployGateApiError } from "../client.js";
+import { DeployGateClient, DeployGateApiError, expandHome } from "../client.js";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -11,6 +13,26 @@ function mockResponse(data: unknown, status = 200) {
     json: () => Promise.resolve(data),
   };
 }
+
+describe("expandHome", () => {
+  it("returns the path unchanged when it does not start with ~", () => {
+    expect(expandHome("/abs/path")).toBe("/abs/path");
+    expect(expandHome("./relative")).toBe("./relative");
+    expect(expandHome("plain.txt")).toBe("plain.txt");
+  });
+
+  it("expands bare ~ to the home directory", () => {
+    expect(expandHome("~")).toBe(homedir());
+  });
+
+  it("expands a leading ~/ prefix", () => {
+    expect(expandHome("~/certs/idp.pem")).toBe(join(homedir(), "certs/idp.pem"));
+  });
+
+  it("does NOT expand ~user/ style paths", () => {
+    expect(expandHome("~alice/secret")).toBe("~alice/secret");
+  });
+});
 
 describe("DeployGateClient", () => {
   let client: DeployGateClient;
@@ -59,6 +81,49 @@ describe("DeployGateClient", () => {
         "API token is not set",
       );
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("empty-body responses", () => {
+    it("returns {} when the response has no JSON body (e.g. 201 with empty body)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: () => Promise.reject(new SyntaxError("Unexpected end of JSON input")),
+      });
+      const result = await client.deleteDistribution("abc123");
+      expect(result).toEqual({});
+    });
+
+    it("returns null for a 204 No Content response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        json: () => Promise.reject(new SyntaxError("Unexpected end of JSON input")),
+      });
+      const result = await client.deleteDistribution("abc123");
+      expect(result).toBeNull();
+    });
+
+    it("propagates non-SyntaxError json() failures instead of masking them", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new TypeError("network read failed")),
+      });
+      await expect(client.deleteDistribution("abc123")).rejects.toThrow(TypeError);
+    });
+
+    it("throws DeployGateApiError when a 4xx/5xx returns an empty or non-JSON body", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: () => Promise.reject(new SyntaxError("Unexpected end of JSON input")),
+      });
+      await expect(client.deleteDistribution("abc123")).rejects.toMatchObject({
+        name: "DeployGateApiError",
+        message: expect.stringContaining("404"),
+      });
     });
   });
 
@@ -650,6 +715,186 @@ describe("DeployGateClient", () => {
     });
   });
 
+  describe("app detail & binaries", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("getApp builds the app path with optional revision query", async () => {
+      await client.getApp("alice", "android", "com.example.app", { revision: 5 });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app?revision=5",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("listAppRevisions builds the binaries path with page", async () => {
+      await client.listAppRevisions("alice", "ios", "com.example.app", { page: 2 });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/ios/apps/com.example.app/binaries?page=2",
+      );
+    });
+
+    it("getAppRevision targets a revision", async () => {
+      await client.getAppRevision("alice", "android", "com.example.app", 7);
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7",
+      );
+    });
+
+    it("updateAppRevision sends PATCH with message and v2 header", async () => {
+      await client.updateAppRevision("alice", "android", "com.example.app", 7, "note");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7",
+      );
+      expect(options.method).toBe("PATCH");
+      expect(options.body).toContain("message=note");
+      expect(options.headers["X-DEPLOYGATE-API-VERSION"]).toBe("2");
+    });
+
+    it("deleteAppRevision sends DELETE", async () => {
+      await client.deleteAppRevision("alice", "android", "com.example.app", 7);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("protectAppRevision posts to /protect", async () => {
+      await client.protectAppRevision("alice", "android", "com.example.app", 7);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7/protect",
+      );
+      expect(options.method).toBe("POST");
+    });
+
+    it("unprotectAppRevision deletes /protect", async () => {
+      await client.unprotectAppRevision("alice", "android", "com.example.app", 7);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/7/protect",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("searchAppRevisions sends q and v2 header", async () => {
+      await client.searchAppRevisions("alice", "android", "com.example.app", { q: "v1.2" });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/search?q=v1.2",
+      );
+      expect(options.method).toBe("GET");
+      expect(options.headers["X-DEPLOYGATE-API-VERSION"]).toBe("2");
+    });
+
+    it("searchAppRevisions encodes paging params", async () => {
+      await client.searchAppRevisions("alice", "android", "com.example.app", {
+        q: "v1",
+        page: 2,
+        perPage: 25,
+      });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/binaries/search?q=v1&paging%5Bpage%5D=2&paging%5Bper_page%5D=25",
+      );
+    });
+  });
+
+  describe("app members", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listAppMembers GETs the members path", async () => {
+      await client.listAppMembers("alice", "android", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/members",
+      );
+      expect(options.method).toBe("GET");
+    });
+  });
+
+  describe("distribution extensions", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("deleteDistributionByName DELETEs with distribution_name query", async () => {
+      await client.deleteDistributionByName("alice", "android", "com.example.app", "QA build");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/distributions?distribution_name=QA+build",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("updateDistributionRevision POSTs revision to packages", async () => {
+      await client.updateDistributionRevision("abcdef", { revision: 12, release_note: "hot" });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/distributions/abcdef/packages");
+      expect(options.method).toBe("POST");
+      expect(options.body).toContain("revision=12");
+      expect(options.body).toContain("release_note=hot");
+    });
+
+    it("updateDistribution forwards ip_restriction params", async () => {
+      await client.updateDistribution("abcdef", {
+        active: true,
+        release_scope: "unlisted",
+        ip_restriction_enable: true,
+        ip_restriction: "10.0.0.0/24",
+      });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toContain("ip_restriction_enable=true");
+      expect(options.body).toContain("ip_restriction=10.0.0.0%2F24");
+    });
+  });
+
+  describe("path-segment URL encoding", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listTeamMembers encodes team names with spaces", async () => {
+      await client.listTeamMembers("proj1", "QA Testers");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/proj1/teams/QA%20Testers/users",
+      );
+    });
+
+    it("removeTeamMember encodes team and user", async () => {
+      await client.removeTeamMember("proj1", "QA Testers", "a@b.com");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/proj1/teams/QA%20Testers/users/a%40b.com",
+      );
+    });
+
+    it("removeProjectMember encodes user identifiers", async () => {
+      await client.removeProjectMember("ws1", "proj1", "a@b.com");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/organizations/proj1/users/a%40b.com",
+      );
+    });
+
+    it("removeSharedTeamMember encodes shared_team_id and user", async () => {
+      await client.removeSharedTeamMember("ws1", "All Staff", "a@b.com");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/shared_teams/All%20Staff/users/a%40b.com",
+      );
+    });
+  });
+
   describe("shared teams", () => {
     it("creates a shared team", async () => {
       mockFetch.mockResolvedValueOnce(
@@ -661,7 +906,7 @@ describe("DeployGateClient", () => {
 
       const [url, options] = mockFetch.mock.calls[0];
       expect(url).toBe(
-        "https://deploygate.com/api/enterprises/my-workspace/sharedteams",
+        "https://deploygate.com/api/enterprises/my-workspace/shared_teams",
       );
       expect(options.body).toContain("name=all+staff");
     });
@@ -695,9 +940,309 @@ describe("DeployGateClient", () => {
 
       const [url, options] = mockFetch.mock.calls[0];
       expect(url).toBe(
-        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/sharedteams",
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/shared_teams",
       );
       expect(options.body).toContain("team=all+staff");
+    });
+  });
+
+  describe("keystores", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("getKeystore GETs /keystores", async () => {
+      await client.getKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("createKeystore POSTs /keystores", async () => {
+      await client.createKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores",
+      );
+      expect(options.method).toBe("POST");
+    });
+
+    it("deleteKeystore DELETEs /keystores", async () => {
+      await client.deleteKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("downloadKeystore GETs keystores/download", async () => {
+      await client.downloadKeystore("alice", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores/download",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("updateKeystore PUTs multipart form-data", async () => {
+      const { writeFile, mkdtemp } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const dir = await mkdtemp(join(tmpdir(), "ks-"));
+      const file = join(dir, "release.keystore");
+      await writeFile(file, "dummy");
+
+      await client.updateKeystore("alice", "com.example.app", {
+        filePath: file,
+        aliasName: "release",
+        keystorePassword: "pw1",
+        keyPassword: "pw2",
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/users/alice/platforms/android/apps/com.example.app/keystores",
+      );
+      expect(options.method).toBe("PUT");
+      expect(options.body).toBeInstanceOf(FormData);
+    });
+  });
+
+  describe("app teams", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listAppTeams GETs the teams path", async () => {
+      await client.listAppTeams("my-project", "android", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/teams",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("removeAppTeam DELETEs the team", async () => {
+      await client.removeAppTeam("my-project", "android", "com.example.app", "qa");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/teams/qa",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("removeAppTeam URL-encodes the team name", async () => {
+      await client.removeAppTeam("my-project", "android", "com.example.app", "all staff");
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/teams/all%20staff",
+      );
+    });
+
+    it("listAppSharedTeams GETs the shared_teams path", async () => {
+      await client.listAppSharedTeams("my-project", "android", "com.example.app");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/shared_teams",
+      );
+      expect(options.method).toBe("GET");
+    });
+
+    it("removeAppSharedTeam DELETEs the shared team", async () => {
+      await client.removeAppSharedTeam("my-project", "android", "com.example.app", "all staff");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/organizations/my-project/platforms/android/apps/com.example.app/shared_teams/all%20staff",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+  });
+
+  describe("workspace members", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listWorkspaceMembers GETs the users path", async () => {
+      await client.listWorkspaceMembers("ws1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users");
+      expect(options.method).toBe("GET");
+    });
+
+    it("getWorkspaceMember GETs and encodes the id", async () => {
+      await client.getWorkspaceMember("ws1", "a@b.com");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users/a%40b.com");
+      expect(options.method).toBe("GET");
+    });
+
+    it("addWorkspaceMember POSTs just the user when no options", async () => {
+      await client.addWorkspaceMember("ws1", "alice");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users");
+      expect(options.method).toBe("POST");
+      expect(options.body).toBe("user=alice");
+    });
+
+    it("addWorkspaceMember POSTs full_name and role when provided", async () => {
+      await client.addWorkspaceMember("ws1", "a@b.com", { full_name: "A B", role: "guest" });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toContain("user=a%40b.com");
+      expect(options.body).toContain("full_name=A+B");
+      expect(options.body).toContain("role=guest");
+    });
+
+    it("removeWorkspaceMember DELETEs and encodes the user", async () => {
+      await client.removeWorkspaceMember("ws1", "a@b.com");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/users/a%40b.com");
+      expect(options.method).toBe("DELETE");
+    });
+  });
+
+  describe("projects (organizations)", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("getProject GETs the organization", async () => {
+      await client.getProject("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project");
+      expect(options.method).toBe("GET");
+    });
+
+    it("updateProject PATCHes display_name and description", async () => {
+      await client.updateProject("my-project", {
+        display_name: "My Project",
+        description: "hello",
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project");
+      expect(options.method).toBe("PATCH");
+      expect(options.body).toContain("display_name=My+Project");
+      expect(options.body).toContain("description=hello");
+    });
+
+    it("updateProject omits undefined fields", async () => {
+      await client.updateProject("my-project", { description: "only desc" });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toBe("description=only+desc");
+    });
+
+    it("deleteProject DELETEs the organization", async () => {
+      await client.deleteProject("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project");
+      expect(options.method).toBe("DELETE");
+    });
+
+    it("listProjectApps GETs the apps path", async () => {
+      await client.listProjectApps("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project/apps");
+      expect(options.method).toBe("GET");
+    });
+
+    it("listProjectMembers GETs the members path", async () => {
+      await client.listProjectMembers("my-project");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/organizations/my-project/members");
+      expect(options.method).toBe("GET");
+    });
+  });
+
+  describe("workspace shared teams", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listSharedTeams GETs the shared_teams path", async () => {
+      await client.listSharedTeams("ws1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/shared_teams");
+      expect(options.method).toBe("GET");
+    });
+
+    it("deleteSharedTeam DELETEs and encodes the team name", async () => {
+      await client.deleteSharedTeam("ws1", "all staff");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/shared_teams/all%20staff",
+      );
+      expect(options.method).toBe("DELETE");
+    });
+  });
+
+  describe("SAML certificate", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("updateSamlCertificate PUTs idp_cert as multipart form data", async () => {
+      const { writeFile, mkdtemp } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const dir = await mkdtemp(join(tmpdir(), "saml-"));
+      const file = join(dir, "idp.pem");
+      await writeFile(file, "CERTDATA");
+
+      await client.updateSamlCertificate("ws1", file);
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/saml_settings/update_certificate",
+      );
+      expect(options.method).toBe("PUT");
+      expect(options.body).toBeInstanceOf(FormData);
+      expect((options.body as FormData).has("idp_cert")).toBe(true);
+    });
+  });
+
+  describe("workspace projects", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue(mockResponse({ error: false, results: {} }));
+    });
+
+    it("listWorkspaceProjects GETs the organizations path", async () => {
+      await client.listWorkspaceProjects("ws1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/organizations");
+      expect(options.method).toBe("GET");
+    });
+
+    it("createProject POSTs name and owner", async () => {
+      await client.createProject("ws1", {
+        owner_name_or_email: "alice",
+        name: "new-proj",
+        display_name: "New Proj",
+        description: "hi",
+      });
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://deploygate.com/api/enterprises/ws1/organizations");
+      expect(options.method).toBe("POST");
+      expect(options.body).toContain("owner_name_or_email=alice");
+      expect(options.body).toContain("name=new-proj");
+      expect(options.body).toContain("display_name=New+Proj");
+      expect(options.body).toContain("description=hi");
+    });
+
+    it("createProject omits undefined optional fields", async () => {
+      await client.createProject("ws1", { owner_name_or_email: "alice", name: "p" });
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.body).toBe("owner_name_or_email=alice&name=p");
+    });
+
+    it("listWorkspaceProjectMembers GETs the nested users path", async () => {
+      await client.listWorkspaceProjectMembers("ws1", "proj1");
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://deploygate.com/api/enterprises/ws1/organizations/proj1/users",
+      );
+      expect(options.method).toBe("GET");
     });
   });
 });

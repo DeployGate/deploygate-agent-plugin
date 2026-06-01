@@ -99,4 +99,58 @@ export function registerSharedTeamTools(
       };
     },
   );
+
+  server.tool(
+    "list_shared_teams",
+    "List the shared teams in a workspace (enterprise). Requires workspace management permission.",
+    { workspace: z.string().describe("Workspace (enterprise) name") },
+    async (args) => {
+      const results = await client.listSharedTeams(args.workspace);
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "delete_shared_team",
+    "Delete a shared team from a workspace (enterprise). DESTRUCTIVE. Returns 400 if the team does not exist.",
+    {
+      workspace: z.string().describe("Workspace (enterprise) name"),
+      team: z.string().describe("Shared team name to delete"),
+    },
+    async (args) => {
+      const results = await client.deleteSharedTeam(args.workspace, args.team);
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "list_shared_team_members",
+    "List the members of a workspace shared team. Requires workspace management permission.",
+    {
+      workspace: z.string().describe("Workspace (enterprise) name"),
+      shared_team_id: z.string().describe("Shared team id"),
+    },
+    async (args) => {
+      const results = await client.listSharedTeamMembers(args.workspace, args.shared_team_id);
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "remove_shared_team_member",
+    "Remove a member from a workspace shared team. DESTRUCTIVE. Returns 404 if the user is not a member of the shared team.",
+    {
+      workspace: z.string().describe("Workspace (enterprise) name"),
+      shared_team_id: z.string().describe("Shared team id"),
+      user: z.string().describe("Member to remove (username or email)"),
+    },
+    async (args) => {
+      const results = await client.removeSharedTeamMember(
+        args.workspace,
+        args.shared_team_id,
+        args.user,
+      );
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    },
+  );
 }
