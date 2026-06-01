@@ -1,11 +1,10 @@
 {
-  "name": "deploygate-agent-plugin",
+  "name": "@deploygate/mcp",
   "version": "1.4.0",
-  "description": "DeployGate agent integration: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
+  "description": "DeployGate MCP server: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
   "type": "module",
-  "main": "dist/index.js",
   "bin": {
-    "deploygate-mcp": "dist/index.js"
+    "deploygate-mcp": "plugin/scripts/bundle.js"
   },
   "scripts": {
     "build": "tsc",
@@ -17,17 +16,16 @@
     "test:watch": "vitest"
   },
   "files": [
-    "plugin/",
-    ".agents/",
-    ".claude-plugin/",
+    "plugin/scripts/bundle.js",
     "LICENSE",
     "README.md"
   ],
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.4.3"
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3",
     "@types/node": "^25.9.1",
     "esbuild": "^0.28.0",
     "typescript": "^6.0.3",

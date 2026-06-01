@@ -28,6 +28,28 @@ codex plugin marketplace add DeployGate/deploygate-agent-plugin
 
 Then enable or install the `deploygate` plugin from the configured DeployGate marketplace in Codex.
 
+### Standalone MCP server (any MCP client)
+
+Beyond the Claude Code / Codex plugins, the server is published to npm as
+`@deploygate/mcp` and can be added to any MCP client via `npx` — no install
+step required.
+
+Add it to your client's MCP configuration (Claude Desktop, Cursor, Cline,
+and others use the same `mcpServers` shape):
+
+```json
+{
+  "mcpServers": {
+    "deploygate": {
+      "command": "npx",
+      "args": ["-y", "@deploygate/mcp"]
+    }
+  }
+}
+```
+
+Authentication is the same as the plugin — see the [Authentication](#authentication) section below for the login flow and the platform-specific token storage path. The token is shared with the plugin installs.
+
 ## Getting Started
 
 After installation, start the guided onboarding flow:

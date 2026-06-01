@@ -188,6 +188,48 @@ describe("plugin/skills/ (slash commands)", () => {
   });
 });
 
+describe("npm package (@deploygate/mcp standalone)", () => {
+  const pkg = loadJson("package.json");
+
+  it("is named @deploygate/mcp", () => {
+    expect(pkg.name).toBe("@deploygate/mcp");
+  });
+
+  it("bin deploygate-mcp points at the committed zero-dep bundle, which exists and starts with a node shebang", () => {
+    const bin = pkg.bin as Record<string, string>;
+    expect(bin["deploygate-mcp"]).toBe("plugin/scripts/bundle.js");
+    const bundlePath = resolve(ROOT, bin["deploygate-mcp"]);
+    expect(existsSync(bundlePath)).toBe(true);
+    expect(
+      readFileSync(bundlePath, "utf-8").startsWith("#!/usr/bin/env node"),
+    ).toBe(true);
+  });
+
+  it("ships only the bundle, README, and LICENSE (no plugin/agent dirs)", () => {
+    const files = pkg.files as string[];
+    expect(files).toContain("plugin/scripts/bundle.js");
+    expect(files).not.toContain("plugin/");
+    expect(files).not.toContain(".agents/");
+    expect(files).not.toContain(".claude-plugin/");
+  });
+
+  it("publishes the scoped package publicly", () => {
+    const publishConfig = pkg.publishConfig as Record<string, string> | undefined;
+    expect(publishConfig?.access).toBe("public");
+  });
+
+  it("has zero runtime dependencies; sdk and zod live in devDependencies", () => {
+    expect(pkg.dependencies ?? {}).toEqual({});
+    const dev = pkg.devDependencies as Record<string, string>;
+    expect(dev["@modelcontextprotocol/sdk"]).toBeDefined();
+    expect(dev["zod"]).toBeDefined();
+  });
+
+  it("does not expose a library main entry", () => {
+    expect(pkg.main).toBeUndefined();
+  });
+});
+
 describe("version sync across release manifests", () => {
   it("package.json, both plugin.json files, the marketplace entry, and the release-please manifest share the same version", () => {
     const pkg = loadJson("package.json");
