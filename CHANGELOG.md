@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.4.0...deploygate--v1.5.0) (2026-06-01)
+
+
+### Features
+
+* expose the full DeployGate public API as MCP tools (apps, projects, workspaces) ([#27](https://github.com/DeployGate/deploygate-agent-plugin/issues/27)) ([60b288d](https://github.com/DeployGate/deploygate-agent-plugin/commit/60b288d2f5dbff47cf9deb6035e087bfeccd3391))
+
 ## [1.4.0](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.3.1...deploygate--v1.4.0) (2026-05-15)
 
 
