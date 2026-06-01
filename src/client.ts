@@ -1,9 +1,25 @@
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { homedir } from "node:os";
+import { basename, join } from "node:path";
 import { VERSION } from "./version.js";
 
 const BASE_URL = "https://deploygate.com";
 const USER_AGENT = `deploygate-agent-plugin/${VERSION}`;
+
+/**
+ * Expand a leading "~/" (or "~\") in a path to the current user's home
+ * directory, matching common shell behavior so agents/users can pass
+ * paths like "~/certs/idp.pem". Bare "~" expands to home; anything
+ * else (including "~user/..." or absolute/relative paths) is returned
+ * unchanged. Node's `fs` APIs do not expand `~` themselves.
+ */
+export function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/") || p.startsWith("~\\")) {
+    return join(homedir(), p.slice(2));
+  }
+  return p;
+}
 
 export interface DeployGateErrorDetail {
   error: true;
@@ -86,6 +102,7 @@ export class DeployGateClient {
     options?: {
       body?: Record<string, unknown>;
       formData?: FormData;
+      headers?: Record<string, string>;
     },
   ): Promise<T> {
     if (!this.token) {
@@ -97,6 +114,7 @@ export class DeployGateClient {
     const headers: Record<string, string> = {
       "User-Agent": USER_AGENT,
       Authorization: `Bearer ${this.token}`,
+      ...(options?.headers ?? {}),
     };
 
     const fetchOptions: RequestInit = { method, headers };
@@ -115,7 +133,23 @@ export class DeployGateClient {
     }
 
     const response = await fetch(url, fetchOptions);
-    const data = (await response.json()) as Record<string, unknown>;
+    if (response.status === 204) {
+      return null as T;
+    }
+    const data = (await response.json().catch((err: unknown) => {
+      if (err instanceof SyntaxError) {
+        // Empty/non-JSON body is acceptable only on a successful response
+        // (e.g. some endpoints reply with `head :created` / empty 200).
+        // For non-2xx responses, surface a real error instead of masking
+        // the failure as a phantom success.
+        if (response.ok) return {};
+        throw new DeployGateApiError({
+          error: true,
+          message: `Unexpected status ${response.status} with empty or non-JSON body`,
+        });
+      }
+      throw err;
+    })) as Record<string, unknown>;
 
     if (data.error) {
       throw new DeployGateApiError(data as unknown as DeployGateErrorDetail);
@@ -128,6 +162,33 @@ export class DeployGateClient {
 
   async getOrganizations(): Promise<unknown> {
     return this.request("GET", "/api/organizations");
+  }
+
+  // --- Projects (organizations) ---
+
+  async getProject(project: string): Promise<unknown> {
+    return this.request("GET", `/api/organizations/${project}`);
+  }
+
+  async updateProject(
+    project: string,
+    params: { display_name?: string; description?: string },
+  ): Promise<unknown> {
+    return this.request("PATCH", `/api/organizations/${project}`, {
+      body: params as Record<string, unknown>,
+    });
+  }
+
+  async deleteProject(project: string): Promise<unknown> {
+    return this.request("DELETE", `/api/organizations/${project}`);
+  }
+
+  async listProjectApps(project: string): Promise<unknown> {
+    return this.request("GET", `/api/organizations/${project}/apps`);
+  }
+
+  async listProjectMembers(project: string): Promise<unknown> {
+    return this.request("GET", `/api/organizations/${project}/members`);
   }
 
   // --- Device auth code flow ---
@@ -240,6 +301,139 @@ export class DeployGateClient {
     }
   }
 
+  // --- App detail & binaries (revisions) ---
+
+  private appBase(owner: string, platform: string, appId: string): string {
+    return `/api/users/${owner}/platforms/${platform}/apps/${appId}`;
+  }
+
+  async getApp(
+    owner: string,
+    platform: string,
+    appId: string,
+    options?: { revision?: number; key?: string },
+  ): Promise<unknown> {
+    const params = new URLSearchParams();
+    if (options?.revision !== undefined)
+      params.set("revision", String(options.revision));
+    // `key` (app secret) is supported for completeness but not exposed as a tool
+    // param — it is redundant under Bearer-token auth.
+    if (options?.key !== undefined) params.set("key", options.key);
+    const qs = params.toString();
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}${qs ? `?${qs}` : ""}`,
+    );
+  }
+
+  async listAppRevisions(
+    owner: string,
+    platform: string,
+    appId: string,
+    options?: { page?: number },
+  ): Promise<unknown> {
+    const params = new URLSearchParams();
+    if (options?.page !== undefined) params.set("page", String(options.page));
+    const qs = params.toString();
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}/binaries${qs ? `?${qs}` : ""}`,
+    );
+  }
+
+  async getAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}`,
+    );
+  }
+
+  async updateAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+    message: string,
+  ): Promise<unknown> {
+    return this.request(
+      "PATCH",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}`,
+      {
+        body: { message },
+        headers: { "X-DEPLOYGATE-API-VERSION": "2" },
+      },
+    );
+  }
+
+  async deleteAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}`,
+    );
+  }
+
+  async protectAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}/protect`,
+    );
+  }
+
+  async unprotectAppRevision(
+    owner: string,
+    platform: string,
+    appId: string,
+    revision: number,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.appBase(owner, platform, appId)}/binaries/${revision}/protect`,
+    );
+  }
+
+  async searchAppRevisions(
+    owner: string,
+    platform: string,
+    appId: string,
+    options: { q: string; page?: number; perPage?: number },
+  ): Promise<unknown> {
+    const params = new URLSearchParams();
+    params.set("q", options.q);
+    if (options.page !== undefined) params.set("paging[page]", String(options.page));
+    if (options.perPage !== undefined)
+      params.set("paging[per_page]", String(options.perPage));
+    return this.request(
+      "GET",
+      `${this.appBase(owner, platform, appId)}/binaries/search?${params.toString()}`,
+      { headers: { "X-DEPLOYGATE-API-VERSION": "2" } },
+    );
+  }
+
+  // --- App members ---
+
+  async listAppMembers(
+    owner: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request("GET", `${this.appBase(owner, platform, appId)}/members`);
+  }
+
   // --- App upload ---
 
   async uploadApp(
@@ -254,7 +448,7 @@ export class DeployGateClient {
       ios_simulator_zip?: string;
     },
   ): Promise<unknown> {
-    const fileBuffer = await readFile(filePath);
+    const fileBuffer = await readFile(expandHome(filePath));
     const fileName = basename(filePath);
     const blob = new Blob([fileBuffer]);
 
@@ -270,7 +464,7 @@ export class DeployGateClient {
       formData.append("release_note", options.release_note);
     if (options?.disable_notify) formData.append("disable_notify", "true");
     if (options?.ios_simulator_zip) {
-      const simBuffer = await readFile(options.ios_simulator_zip);
+      const simBuffer = await readFile(expandHome(options.ios_simulator_zip));
       const simFileName = basename(options.ios_simulator_zip);
       const simBlob = new Blob([simBuffer]);
       formData.append("ios_simulator_zip", simBlob, simFileName);
@@ -322,6 +516,8 @@ export class DeployGateClient {
       release_scope: string;
       passcode?: string;
       release_note?: string;
+      ip_restriction_enable?: boolean;
+      ip_restriction?: string;
     },
   ): Promise<unknown> {
     return this.request("PUT", `/api/distributions/${accessKey}`, {
@@ -331,6 +527,28 @@ export class DeployGateClient {
 
   async deleteDistribution(accessKey: string): Promise<unknown> {
     return this.request("DELETE", `/api/distributions/${accessKey}`);
+  }
+
+  async deleteDistributionByName(
+    owner: string,
+    platform: string,
+    appId: string,
+    distributionName: string,
+  ): Promise<unknown> {
+    const qs = new URLSearchParams({ distribution_name: distributionName }).toString();
+    return this.request(
+      "DELETE",
+      `/api/users/${owner}/platforms/${platform}/apps/${appId}/distributions?${qs}`,
+    );
+  }
+
+  async updateDistributionRevision(
+    accessKey: string,
+    params: { revision: number; release_note?: string },
+  ): Promise<unknown> {
+    return this.request("POST", `/api/distributions/${accessKey}/packages`, {
+      body: params as Record<string, unknown>,
+    });
   }
 
   // --- iOS UDIDs ---
@@ -344,9 +562,24 @@ export class DeployGateClient {
 
   // --- Workspace member management ---
 
-  async addWorkspaceMember(workspace: string, user: string): Promise<unknown> {
+  async listWorkspaceMembers(workspace: string): Promise<unknown> {
+    return this.request("GET", `/api/enterprises/${workspace}/users`);
+  }
+
+  async getWorkspaceMember(workspace: string, id: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/enterprises/${workspace}/users/${encodeURIComponent(id)}`,
+    );
+  }
+
+  async addWorkspaceMember(
+    workspace: string,
+    user: string,
+    options?: { full_name?: string; role?: string },
+  ): Promise<unknown> {
     return this.request("POST", `/api/enterprises/${workspace}/users`, {
-      body: { user },
+      body: { user, ...options },
     });
   }
 
@@ -356,7 +589,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/enterprises/${workspace}/users/${user}`,
+      `/api/enterprises/${workspace}/users/${encodeURIComponent(user)}`,
     );
   }
 
@@ -381,7 +614,35 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/enterprises/${workspace}/organizations/${project}/users/${user}`,
+      `/api/enterprises/${workspace}/organizations/${project}/users/${encodeURIComponent(user)}`,
+    );
+  }
+
+  async listWorkspaceProjects(workspace: string): Promise<unknown> {
+    return this.request("GET", `/api/enterprises/${workspace}/organizations`);
+  }
+
+  async createProject(
+    workspace: string,
+    params: {
+      owner_name_or_email: string;
+      name: string;
+      display_name?: string;
+      description?: string;
+    },
+  ): Promise<unknown> {
+    return this.request("POST", `/api/enterprises/${workspace}/organizations`, {
+      body: params as Record<string, unknown>,
+    });
+  }
+
+  async listWorkspaceProjectMembers(
+    workspace: string,
+    project: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/api/enterprises/${workspace}/organizations/${project}/users`,
     );
   }
 
@@ -394,7 +655,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "POST",
-      `/api/organizations/${project}/teams/${team}/users`,
+      `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users`,
       { body: { user } },
     );
   }
@@ -402,7 +663,7 @@ export class DeployGateClient {
   async listTeamMembers(project: string, team: string): Promise<unknown> {
     return this.request(
       "GET",
-      `/api/organizations/${project}/teams/${team}/users`,
+      `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users`,
     );
   }
 
@@ -413,7 +674,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/organizations/${project}/teams/${team}/users/${user}`,
+      `/api/organizations/${project}/teams/${encodeURIComponent(team)}/users/${encodeURIComponent(user)}`,
     );
   }
 
@@ -435,9 +696,20 @@ export class DeployGateClient {
   // --- Shared teams ---
 
   async createSharedTeam(workspace: string, name: string): Promise<unknown> {
-    return this.request("POST", `/api/enterprises/${workspace}/sharedteams`, {
+    return this.request("POST", `/api/enterprises/${workspace}/shared_teams`, {
       body: { name },
     });
+  }
+
+  async listSharedTeams(workspace: string): Promise<unknown> {
+    return this.request("GET", `/api/enterprises/${workspace}/shared_teams`);
+  }
+
+  async deleteSharedTeam(workspace: string, team: string): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(team)}`,
+    );
   }
 
   async addSharedTeamMember(
@@ -447,7 +719,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "POST",
-      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`,
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users`,
       { body: params as Record<string, unknown> },
     );
   }
@@ -458,7 +730,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "GET",
-      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users`,
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users`,
     );
   }
 
@@ -469,7 +741,7 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "DELETE",
-      `/api/enterprises/${workspace}/shared_teams/${sharedTeamId}/users/${userId}`,
+      `/api/enterprises/${workspace}/shared_teams/${encodeURIComponent(sharedTeamId)}/users/${encodeURIComponent(userId)}`,
     );
   }
 
@@ -481,8 +753,118 @@ export class DeployGateClient {
   ): Promise<unknown> {
     return this.request(
       "POST",
-      `/api/organizations/${project}/platforms/${platform}/apps/${appId}/sharedteams`,
+      `/api/organizations/${project}/platforms/${platform}/apps/${appId}/shared_teams`,
       { body: { team } },
     );
+  }
+
+  // --- Workspace SAML settings ---
+
+  async updateSamlCertificate(
+    workspace: string,
+    filePath: string,
+  ): Promise<unknown> {
+    const fileBuffer = await readFile(expandHome(filePath));
+    const fileName = basename(filePath);
+    const formData = new FormData();
+    formData.append("idp_cert", new Blob([fileBuffer]), fileName);
+    return this.request(
+      "PUT",
+      `/api/enterprises/${workspace}/saml_settings/update_certificate`,
+      { formData },
+    );
+  }
+
+  // --- App teams (organizations) ---
+
+  private orgAppBase(project: string, platform: string, appId: string): string {
+    return `/api/organizations/${project}/platforms/${platform}/apps/${appId}`;
+  }
+
+  async listAppTeams(
+    project: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request("GET", `${this.orgAppBase(project, platform, appId)}/teams`);
+  }
+
+  async removeAppTeam(
+    project: string,
+    platform: string,
+    appId: string,
+    team: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.orgAppBase(project, platform, appId)}/teams/${encodeURIComponent(team)}`,
+    );
+  }
+
+  async listAppSharedTeams(
+    project: string,
+    platform: string,
+    appId: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `${this.orgAppBase(project, platform, appId)}/shared_teams`,
+    );
+  }
+
+  async removeAppSharedTeam(
+    project: string,
+    platform: string,
+    appId: string,
+    team: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `${this.orgAppBase(project, platform, appId)}/shared_teams/${encodeURIComponent(team)}`,
+    );
+  }
+
+  // --- Android keystores ---
+
+  private keystoreBase(owner: string, appId: string): string {
+    return `/api/users/${owner}/platforms/android/apps/${appId}/keystores`;
+  }
+
+  async getKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("GET", this.keystoreBase(owner, appId));
+  }
+
+  async createKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("POST", this.keystoreBase(owner, appId));
+  }
+
+  async deleteKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("DELETE", this.keystoreBase(owner, appId));
+  }
+
+  async downloadKeystore(owner: string, appId: string): Promise<unknown> {
+    return this.request("GET", `${this.keystoreBase(owner, appId)}/download`);
+  }
+
+  async updateKeystore(
+    owner: string,
+    appId: string,
+    params: {
+      filePath: string;
+      aliasName: string;
+      keystorePassword: string;
+      keyPassword: string;
+    },
+  ): Promise<unknown> {
+    const fileBuffer = await readFile(expandHome(params.filePath));
+    const fileName = basename(params.filePath);
+    const formData = new FormData();
+    formData.append("file", new Blob([fileBuffer]), fileName);
+    formData.append("alias_name", params.aliasName);
+    formData.append("keystore_password", params.keystorePassword);
+    formData.append("key_password", params.keyPassword);
+    return this.request("PUT", this.keystoreBase(owner, appId), {
+      formData,
+    });
   }
 }
