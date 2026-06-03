@@ -21,7 +21,7 @@ export function registerWorkspaceProjectTools(
 
   server.tool(
     "create_project",
-    "Create a new project (organization) in a workspace (enterprise). Requires a USER API token. 'name' must be 3-28 chars (letters/digits/hyphens/underscores, starting and ending with a letter or digit) and GLOBALLY unique (400 if already in use). 'owner_name_or_email' must be an existing workspace member (404 otherwise). 403 if the plan's project limit is exceeded. display_name defaults to name.",
+    "Create a new project (organization) in a workspace (enterprise). Requires workspace management permission (a workspace API key is also accepted). 'name' must be 3-28 chars (letters/digits/hyphens/underscores, starting and ending with a letter or digit) and GLOBALLY unique (400 if already in use). 'owner_name_or_email' must be an existing workspace member (404 otherwise). 403 if the plan's project limit is exceeded. display_name defaults to name.",
     {
       workspace: workspaceArg,
       owner_name_or_email: z.string().describe("Workspace member to set as the project owner (username or email)"),
@@ -52,7 +52,7 @@ export function registerWorkspaceProjectTools(
 
   server.tool(
     "add_project_member",
-    "Add a workspace member to a project (organization) as a direct project member. The user must already be a workspace member (401 otherwise); 403 if you lack permission. This is the project-level membership; to add to a specific team use add_member.",
+    "Add a workspace member to a project (organization) as a direct project member. The user must already be a workspace member (401 otherwise); 403 if you lack permission. This is the project-level membership; to add to a specific team use add_team_member.",
     {
       workspace: workspaceArg,
       project: projectArg,

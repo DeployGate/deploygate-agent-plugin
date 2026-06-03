@@ -12,7 +12,7 @@ export function registerAppMemberTools(
 ): void {
   server.tool(
     "list_app_members",
-    "List members of an app with usage quota (used/max). For personal (user-owned) apps this lists individual collaborators; for project/workspace (Group) apps it also includes the teams attached to the app.",
+    "List the members of an app. For project/workspace (Group)-owned apps (current plans) this returns individual users plus the teams attached to the app. For legacy user-owned apps it returns individual collaborators plus a usage quota object (used/max seats).",
     { owner_name: ownerArg, platform: platformArg, app_id: appIdArg },
     async (args) => {
       const results = await client.listAppMembers(
@@ -74,7 +74,7 @@ export function registerAppMemberTools(
 
   server.tool(
     "remove_app_shared_team",
-    "Detach a workspace shared team from an app. Only valid for apps in an Enterprise (workspace) organization — returns 400 otherwise. DESTRUCTIVE. The owner team cannot be detached (403). Returns 400 if the shared team is not attached.",
+    "Detach a workspace shared team from an app. Only valid for apps in an Enterprise (workspace) organization — returns 400 otherwise. DESTRUCTIVE. Returns 400 if the shared team is not attached.",
     {
       owner_name: z.string().describe("Project (organization) name"),
       platform: platformArg,
