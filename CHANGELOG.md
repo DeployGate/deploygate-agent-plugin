@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.5.0...deploygate--v1.5.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* **tools:** fix inaccuracies in MCP tool descriptions ([#36](https://github.com/DeployGate/deploygate-agent-plugin/issues/36)) ([50a33a4](https://github.com/DeployGate/deploygate-agent-plugin/commit/50a33a4e15689e1ecf9e2b85ea24b6667711b59e)), closes [#34](https://github.com/DeployGate/deploygate-agent-plugin/issues/34)
+
 ## [1.5.0](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.4.0...deploygate--v1.5.0) (2026-06-01)
 
 
