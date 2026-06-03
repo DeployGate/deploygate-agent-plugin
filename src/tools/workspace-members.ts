@@ -30,12 +30,12 @@ export function registerWorkspaceMemberTools(
 
   server.tool(
     "add_workspace_member",
-    "Invite/add a member to a workspace (enterprise). Requires a USER API token (not a workspace token). Set role='guest' for a guest member. Returns 400 if already a member, 403 if you lack invite permission or the plan's member seats are exceeded; SSO/flexible workspaces require an email address.",
+    "Invite/add a member to a workspace (enterprise) by email address. Requires workspace invite permission (a workspace API key is also accepted). Returns 400 if already a member, 403 if you lack invite permission or the plan's member seats are exceeded.",
     {
       workspace: workspaceArg,
-      user: z.string().describe("User email or username to add"),
+      user: z.string().describe("Email address of the user to invite (inviting an existing user by username is deprecated)"),
       full_name: z.string().optional().describe("Optional full name for the invitee"),
-      role: z.string().optional().describe("Optional role; use 'guest' to invite a guest member"),
+      role: z.string().optional().describe("Optional role; 'guest' invites a guest member but is available only to certain partner workspaces"),
     },
     async (args) => {
       const results = await client.addWorkspaceMember(args.workspace, args.user, {
@@ -48,7 +48,7 @@ export function registerWorkspaceMemberTools(
 
   server.tool(
     "remove_workspace_member",
-    "Remove a member from a workspace (enterprise) entirely. Requires a USER API token. DESTRUCTIVE. You cannot remove yourself (403); a non-member returns 400.",
+    "Remove a member from a workspace (enterprise) entirely. Requires workspace management permission (a workspace API key is also accepted). DESTRUCTIVE. You cannot remove yourself (403); a non-member returns 400.",
     { workspace: workspaceArg, user: z.string().describe("Member name or email to remove") },
     async (args) => {
       const results = await client.removeWorkspaceMember(args.workspace, args.user);

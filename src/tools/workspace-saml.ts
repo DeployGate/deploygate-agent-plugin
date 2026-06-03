@@ -8,7 +8,7 @@ export function registerWorkspaceSamlTools(
 ): void {
   server.tool(
     "update_saml_certificate",
-    "Update a workspace's SAML IdP certificate from a local PEM file. Requires a USER API token with workspace ADMIN permission. CAUTION: uploading an incorrect certificate can break SSO login for the whole workspace. Returns 400 for an invalid certificate file, 403 if not an admin or the plan has expired, 404 if SAML is not configured.",
+    "Update a workspace's SAML IdP certificate from a local PEM file. Requires workspace admin permission (a workspace API key is also accepted). CAUTION: uploading an incorrect certificate can break SSO login for the whole workspace. Returns 400 for an invalid certificate file, 403 if not an admin or the plan has expired, 404 if SAML is not configured.",
     {
       workspace: z.string().describe("Workspace (enterprise) name"),
       file_path: z.string().describe("Local path to the IdP X.509 certificate (PEM) file"),
