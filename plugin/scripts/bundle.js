@@ -30954,7 +30954,7 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
 // dist/version.js
-var VERSION = true ? "1.5.0" : "dev";
+var VERSION = true ? "1.5.1" : "dev";
 
 // dist/client.js
 var BASE_URL = "https://deploygate.com";
@@ -32110,7 +32110,7 @@ var ownerArg2 = external_exports.string().describe("Owner name (user or project)
 var platformArg2 = external_exports.enum(["ios", "android"]).describe("App platform");
 var appIdArg2 = external_exports.string().describe("App ID (package name or bundle identifier)");
 function registerAppMemberTools(server2, client2) {
-  server2.tool("list_app_members", "List members of an app with usage quota (used/max). For personal (user-owned) apps this lists individual collaborators; for project/workspace (Group) apps it also includes the teams attached to the app.", { owner_name: ownerArg2, platform: platformArg2, app_id: appIdArg2 }, async (args) => {
+  server2.tool("list_app_members", "List the members of an app. For project/workspace (Group)-owned apps (current plans) this returns individual users plus the teams attached to the app. For legacy user-owned apps it returns individual collaborators plus a usage quota object (used/max seats).", { owner_name: ownerArg2, platform: platformArg2, app_id: appIdArg2 }, async (args) => {
     const results = await client2.listAppMembers(args.owner_name, args.platform, args.app_id);
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
@@ -32131,7 +32131,7 @@ function registerAppMemberTools(server2, client2) {
     const results = await client2.listAppSharedTeams(args.owner_name, args.platform, args.app_id);
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
-  server2.tool("remove_app_shared_team", "Detach a workspace shared team from an app. Only valid for apps in an Enterprise (workspace) organization \u2014 returns 400 otherwise. DESTRUCTIVE. The owner team cannot be detached (403). Returns 400 if the shared team is not attached.", {
+  server2.tool("remove_app_shared_team", "Detach a workspace shared team from an app. Only valid for apps in an Enterprise (workspace) organization \u2014 returns 400 otherwise. DESTRUCTIVE. Returns 400 if the shared team is not attached.", {
     owner_name: external_exports.string().describe("Project (organization) name"),
     platform: platformArg2,
     app_id: appIdArg2,
@@ -32223,11 +32223,11 @@ function registerWorkspaceMemberTools(server2, client2) {
     const results = await client2.getWorkspaceMember(args.workspace, args.id);
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
-  server2.tool("add_workspace_member", "Invite/add a member to a workspace (enterprise). Requires a USER API token (not a workspace token). Set role='guest' for a guest member. Returns 400 if already a member, 403 if you lack invite permission or the plan's member seats are exceeded; SSO/flexible workspaces require an email address.", {
+  server2.tool("add_workspace_member", "Invite/add a member to a workspace (enterprise) by email address. Requires workspace invite permission (a workspace API key is also accepted). Returns 400 if already a member, 403 if you lack invite permission or the plan's member seats are exceeded.", {
     workspace: workspaceArg,
-    user: external_exports.string().describe("User email or username to add"),
+    user: external_exports.string().describe("Email address of the user to invite (inviting an existing user by username is deprecated)"),
     full_name: external_exports.string().optional().describe("Optional full name for the invitee"),
-    role: external_exports.string().optional().describe("Optional role; use 'guest' to invite a guest member")
+    role: external_exports.string().optional().describe("Optional role; 'guest' invites a guest member but is available only to certain partner workspaces")
   }, async (args) => {
     const results = await client2.addWorkspaceMember(args.workspace, args.user, {
       full_name: args.full_name,
@@ -32235,7 +32235,7 @@ function registerWorkspaceMemberTools(server2, client2) {
     });
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
-  server2.tool("remove_workspace_member", "Remove a member from a workspace (enterprise) entirely. Requires a USER API token. DESTRUCTIVE. You cannot remove yourself (403); a non-member returns 400.", { workspace: workspaceArg, user: external_exports.string().describe("Member name or email to remove") }, async (args) => {
+  server2.tool("remove_workspace_member", "Remove a member from a workspace (enterprise) entirely. Requires workspace management permission (a workspace API key is also accepted). DESTRUCTIVE. You cannot remove yourself (403); a non-member returns 400.", { workspace: workspaceArg, user: external_exports.string().describe("Member name or email to remove") }, async (args) => {
     const results = await client2.removeWorkspaceMember(args.workspace, args.user);
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
@@ -32249,7 +32249,7 @@ function registerWorkspaceProjectTools(server2, client2) {
     const results = await client2.listWorkspaceProjects(args.workspace);
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
-  server2.tool("create_project", "Create a new project (organization) in a workspace (enterprise). Requires a USER API token. 'name' must be 3-28 chars (letters/digits/hyphens/underscores, starting and ending with a letter or digit) and GLOBALLY unique (400 if already in use). 'owner_name_or_email' must be an existing workspace member (404 otherwise). 403 if the plan's project limit is exceeded. display_name defaults to name.", {
+  server2.tool("create_project", "Create a new project (organization) in a workspace (enterprise). Requires workspace management permission (a workspace API key is also accepted). 'name' must be 3-28 chars (letters/digits/hyphens/underscores, starting and ending with a letter or digit) and GLOBALLY unique (400 if already in use). 'owner_name_or_email' must be an existing workspace member (404 otherwise). 403 if the plan's project limit is exceeded. display_name defaults to name.", {
     workspace: workspaceArg2,
     owner_name_or_email: external_exports.string().describe("Workspace member to set as the project owner (username or email)"),
     name: external_exports.string().describe("Project name (3-28 chars, globally unique)"),
@@ -32268,7 +32268,7 @@ function registerWorkspaceProjectTools(server2, client2) {
     const results = await client2.listWorkspaceProjectMembers(args.workspace, args.project);
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
   });
-  server2.tool("add_project_member", "Add a workspace member to a project (organization) as a direct project member. The user must already be a workspace member (401 otherwise); 403 if you lack permission. This is the project-level membership; to add to a specific team use add_member.", {
+  server2.tool("add_project_member", "Add a workspace member to a project (organization) as a direct project member. The user must already be a workspace member (401 otherwise); 403 if you lack permission. This is the project-level membership; to add to a specific team use add_team_member.", {
     workspace: workspaceArg2,
     project: projectArg2,
     user: external_exports.string().describe("Workspace member to add (username or email)")
@@ -32288,7 +32288,7 @@ function registerWorkspaceProjectTools(server2, client2) {
 
 // dist/tools/workspace-saml.js
 function registerWorkspaceSamlTools(server2, client2) {
-  server2.tool("update_saml_certificate", "Update a workspace's SAML IdP certificate from a local PEM file. Requires a USER API token with workspace ADMIN permission. CAUTION: uploading an incorrect certificate can break SSO login for the whole workspace. Returns 400 for an invalid certificate file, 403 if not an admin or the plan has expired, 404 if SAML is not configured.", {
+  server2.tool("update_saml_certificate", "Update a workspace's SAML IdP certificate from a local PEM file. Requires workspace admin permission (a workspace API key is also accepted). CAUTION: uploading an incorrect certificate can break SSO login for the whole workspace. Returns 400 for an invalid certificate file, 403 if not an admin or the plan has expired, 404 if SAML is not configured.", {
     workspace: external_exports.string().describe("Workspace (enterprise) name"),
     file_path: external_exports.string().describe("Local path to the IdP X.509 certificate (PEM) file")
   }, async (args) => {

@@ -12,7 +12,7 @@
       "name": "deploygate",
       "source": "./plugin",
       "description": "Upload apps, manage distribution pages, add team members, and set up CI/CD integration with DeployGate",
-      "version": "1.5.0"
+      "version": "1.5.1"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "name": "@deploygate/mcp",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "DeployGate MCP server: upload mobile apps, manage distribution pages, set up CI/CD, and onboard your team. Supports iOS (IPA) and Android (APK/AAB).",
   "type": "module",
   "bin": {
