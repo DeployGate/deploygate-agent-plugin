@@ -85,6 +85,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      # Only publish commits that went through main, so a manual run cannot
+      # publish a tag pointing at unreviewed code.
+      - run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::${TAG} is not reachable from main; refusing to publish"
+            exit 1
+          fi
 
       - id: check
         run: |
@@ -94,14 +103,20 @@ jobs:
             echo "::error::package.json version ${PKG_VERSION} does not match tag ${TAG}"
             exit 1
           fi
-          # npm view exits non-zero (E404) or prints nothing when the version is absent.
-          PUBLISHED=$(npm view "@deploygate/mcp@${VERSION}" version 2>/dev/null || true)
-          if [ "$PUBLISHED" = "$VERSION" ]; then
-            echo "::notice::@deploygate/mcp@${VERSION} is already on npm; skipping publish"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+          # Only an explicit E404 means "not published yet". Any other registry
+          # error stops the run instead of attempting a publish.
+          if PUBLISHED=$(npm view "@deploygate/mcp@${VERSION}" version 2>"$RUNNER_TEMP/npm-view.err"); then
+            if [ "$PUBLISHED" = "$VERSION" ]; then
+              echo "::notice::@deploygate/mcp@${VERSION} is already on npm; skipping publish"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif ! grep -q E404 "$RUNNER_TEMP/npm-view.err"; then
+            cat "$RUNNER_TEMP/npm-view.err"
+            echo "::error::Could not check npm for @deploygate/mcp@${VERSION}"
+            exit 1
           fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - if: ${{ steps.check.outputs.skip == 'false' }}
         uses: actions/setup-node@v7

@@ -227,7 +227,10 @@ Without a pin, `claude plugin install` follows `main`. Users can fetch the lates
 
 ### Retrying a failed npm publish
 
-If the tag `deploygate--vX.Y.Z` and its GitHub Release exist but `npm publish` failed, do not delete the tag: that breaks release-please's baseline. Fix the cause, then go to Actions → Release → Run workflow and enter the tag. The workflow checks out the tag and publishes the files committed there, including `plugin/scripts/bundle.js`. If that version is already on npm, the run does nothing.
+If the tag `deploygate--vX.Y.Z` and its GitHub Release exist but `npm publish` failed, do not delete the tag: that breaks release-please's baseline.
+
+- If the failure was transient or outside the repository (an npm outage, a registry or trusted-publisher setting), fix it and go to Actions → Release → Run workflow, then enter the tag. The workflow checks out the tag and publishes the files committed there, including `plugin/scripts/bundle.js`. It refuses tags that are not reachable from `main`, and does nothing if that version is already on npm.
+- If the failure was caused by the tagged files themselves (for example a broken `package-lock.json`), a retry fails again because the tag cannot change. Merge a `fix:` PR to `main` and ship it as the next release instead.
 
 ## Support & Project Status
 
