@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -21,3 +21,28 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+  bundle-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run bundle
+
+      # Run the bundle on the exact minimum Node allowed by package.json
+      # "engines". Copy plugin/ out of the checkout first, as the plugin cache
+      # does, so neither node_modules nor the root package.json is visible.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20.0.0
+
+      - run: |
+          cp -R plugin "$RUNNER_TEMP/plugin"
+          node scripts/smoke-bundle.mjs "$RUNNER_TEMP/plugin/scripts/bundle.js"
