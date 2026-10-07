@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -21,3 +21,25 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+  bundle-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run bundle
+
+      # Run the bundle on the minimum Node allowed by package.json "engines".
+      # No dependencies are installed for this step; the bundle is self-contained.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - run: node scripts/smoke-bundle.mjs plugin/scripts/bundle.js
