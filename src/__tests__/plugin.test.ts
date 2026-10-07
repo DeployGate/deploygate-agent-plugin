@@ -160,6 +160,15 @@ describe("plugin/.mcp.json", () => {
   });
 });
 
+describe("plugin/scripts/package.json", () => {
+  // The plugin cache copies only plugin/, so this file is what makes Node
+  // load bundle.js as ESM on versions without module syntax detection
+  // (Node < 20.19 and 22.0-22.6).
+  it("marks the bundle directory as ESM", () => {
+    expect(loadJson("plugin/scripts/package.json").type).toBe("module");
+  });
+});
+
 describe("plugin/skills/ (slash commands)", () => {
   it("skills/setup/SKILL.md exists", () => {
     expect(existsSync(resolve(ROOT, "plugin/skills/setup/SKILL.md"))).toBe(true);
