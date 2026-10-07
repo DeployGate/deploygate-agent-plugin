@@ -225,6 +225,10 @@ End users can pin to a tag with:
 
 Without a pin, `claude plugin install` follows `main`. Users can fetch the latest published tag with `claude plugin update deploygate`.
 
+### Retrying a failed npm publish
+
+If the tag `deploygate--vX.Y.Z` and its GitHub Release exist but `npm publish` failed, do not delete the tag: that breaks release-please's baseline. Fix the cause, then go to Actions → Release → Run workflow and enter the tag. The workflow checks out the tag and publishes the files committed there, including `plugin/scripts/bundle.js`. If that version is already on npm, the run does nothing.
+
 ## Support & Project Status
 
 This plugin is open-source software provided **as-is on a best-effort
