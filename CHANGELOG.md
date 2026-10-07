@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.5.1...deploygate--v1.5.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* mark the plugin bundle as ESM so it loads on Node 20.0-20.18 and 22.0-22.6 ([#79](https://github.com/DeployGate/deploygate-agent-plugin/issues/79)) ([579ba6a](https://github.com/DeployGate/deploygate-agent-plugin/commit/579ba6a54c58a83f0d98334082a195be05dd73e9))
+
 ## [1.5.1](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.5.0...deploygate--v1.5.1) (2026-06-03)
 
 
