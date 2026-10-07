@@ -29,7 +29,7 @@
     "@types/node": "^26.1.2",
     "esbuild": "^0.28.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.7",
+    "vitest": "^5.0.3",
     "yaml": "^2.9.0"
   },
   "engines": {
