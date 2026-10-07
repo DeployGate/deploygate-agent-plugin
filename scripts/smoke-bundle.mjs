@@ -45,6 +45,14 @@ child.stdout.on("data", (chunk) => {
     try {
       message = JSON.parse(line);
     } catch {
+      message = undefined;
+    }
+    if (
+      typeof message !== "object" ||
+      message === null ||
+      Array.isArray(message) ||
+      message.jsonrpc !== "2.0"
+    ) {
       fail(new Error(`bundle wrote a non JSON-RPC line to stdout: ${line}`));
       return;
     }
