@@ -36,6 +36,17 @@ jobs:
 
       - run: npm run bundle
 
+      # Release PRs only: the committed bundle is what plugin users run, so it
+      # must match a fresh build. Elsewhere it is expected to lag behind main
+      # between releases, because it is only regenerated on the release PR.
+      - name: Check that the committed bundle is up to date
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--')
+        run: |
+          if ! git diff --exit-code --stat plugin/scripts/bundle.js; then
+            echo "::error file=plugin/scripts/bundle.js::The committed bundle is stale. Update the release PR branch (e.g. \"Update branch\") so that the Release workflow regenerates and commits it."
+            exit 1
+          fi
+
       # Run the bundle on the exact minimum Node allowed by package.json
       # "engines". Copy plugin/ out of the checkout first, as the plugin cache
       # does, so neither node_modules nor the root package.json is visible.
