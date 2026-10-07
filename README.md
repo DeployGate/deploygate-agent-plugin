@@ -212,8 +212,9 @@ Releases are automated by [release-please](https://github.com/googleapis/release
 
 1. Merge a `feat:` or `fix:` PR into `main`.
 2. The `Release` workflow opens (or updates) a Release PR that bumps the version in `package.json`, both `plugin/.claude-plugin/plugin.json` and `plugin/.codex-plugin/plugin.json`, the `deploygate` entry in `.claude-plugin/marketplace.json`, and `.release-please-manifest.json`, and appends to `CHANGELOG.md`.
-3. Merge the Release PR.
-4. The `Release` workflow runs again, creates the git tag `deploygate--vX.Y.Z`, and publishes a GitHub Release.
+3. In the same run, the `Release` workflow regenerates `plugin/scripts/bundle.js` on the Release PR branch and pushes a `chore: regenerate bundle.js for release` commit.
+4. Merge the Release PR. The plugin is served from this repository, so plugin users can pick up the new version as soon as it lands on `main` (see [Installing a specific version](#installing-a-specific-version)).
+5. The `Release` workflow runs again, creates the git tag `deploygate--vX.Y.Z`, publishes a GitHub Release, and then publishes `@deploygate/mcp` to npm.
 
 ### Installing a specific version
 
