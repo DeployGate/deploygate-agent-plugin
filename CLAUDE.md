@@ -19,7 +19,7 @@ npm run dev          # TypeScript watch mode
 npm start            # Run the MCP server directly
 ```
 
-CI runs `npm run build && npm test` on Node 24 on every PR and push to main. A separate `bundle-compat` job builds the bundle on Node 24 and runs `node scripts/smoke-bundle.mjs` against it on Node 20, the minimum in `engines`, so the published bundle keeps working there even though dev tooling (vitest 5) needs Node 22+. `plugin/scripts/bundle.js` is regenerated and committed automatically by the release-please workflow when it opens/updates a release PR — do not run `npm run bundle` and commit the result manually. A pre-commit hook in `.githooks/` (installed by `npm install` via `prepare`) blocks accidental commits of the bundle.
+CI runs `npm run build && npm test` on Node 24 on every PR and push to main. A separate `bundle-compat` job builds the bundle on Node 24 and runs `node scripts/smoke-bundle.mjs` against a copy of `plugin/` outside the checkout on Node 20.0.0, the exact minimum in `engines`, so the plugin as users install it keeps working there even though dev tooling (vitest 5) needs Node 22+. `plugin/scripts/bundle.js` is regenerated and committed automatically by the release-please workflow when it opens/updates a release PR — do not run `npm run bundle` and commit the result manually. A pre-commit hook in `.githooks/` (installed by `npm install` via `prepare`) blocks accidental commits of the bundle.
 
 ## Architecture
 

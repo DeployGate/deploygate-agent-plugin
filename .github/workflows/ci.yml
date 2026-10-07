@@ -36,13 +36,13 @@ jobs:
 
       - run: npm run bundle
 
-      # Run the bundle on the minimum Node allowed by package.json "engines".
-      # Copy it out of the checkout first so imports cannot resolve from
-      # node_modules; published users get only the self-contained bundle.
+      # Run the bundle on the exact minimum Node allowed by package.json
+      # "engines". Copy plugin/ out of the checkout first, as the plugin cache
+      # does, so neither node_modules nor the root package.json is visible.
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 20.0.0
 
       - run: |
-          cp plugin/scripts/bundle.js "$RUNNER_TEMP/bundle.js"
-          node scripts/smoke-bundle.mjs "$RUNNER_TEMP/bundle.js"
+          cp -R plugin "$RUNNER_TEMP/plugin"
+          node scripts/smoke-bundle.mjs "$RUNNER_TEMP/plugin/scripts/bundle.js"
