@@ -29,16 +29,26 @@ Do not open a public issue.
 ## Development setup
 
 ```bash
-npm install        # Install dependencies
-npm run build      # Compile TypeScript and bundle with esbuild
+npm install        # Install dependencies (also installs the pre-commit hook)
+npm run build      # Compile TypeScript (tsc only; no bundle)
 npm test           # Run the vitest suite
 npm run test:watch # Re-run tests on file changes
-npm run dev        # TypeScript watch mode (no esbuild)
-npm start          # Run the MCP server directly via stdio
+npm run dev        # TypeScript watch mode
+npm start          # Run the MCP server from dist/index.js via stdio
+npm run bundle     # tsc + esbuild into plugin/scripts/bundle.js
 ```
 
-CI runs `npm run build && npm test` on every PR and on pushes to
-`main`. Please make sure both pass locally before requesting review.
+Run `npm run bundle` only when you want to test the plugin end-to-end
+locally, and do **not** commit `plugin/scripts/bundle.js`. The release
+workflow regenerates it, and a pre-commit hook in `.githooks/` blocks
+accidental commits. See [Development](./README.md#development) in the
+README for details.
+
+CI runs `npm ci`, `npm run build`, and `npm test` on Node 24 on every
+PR and on pushes to `main`. A separate `bundle-compat` job builds the
+bundle on Node 24 and smoke-tests it on Node 20.0.0, the minimum in
+`engines`. Please make sure the build and tests pass locally before
+requesting review.
 
 ## Branch and PR flow
 
@@ -50,15 +60,26 @@ CI runs `npm run build && npm test` on every PR and on pushes to
   and complete the checklist.
 - Keep changes focused. Unrelated refactors should land in their own
   pull request with their own issue.
+- PR titles must follow
+  [Conventional Commits](https://www.conventionalcommits.org/) (for
+  example `feat: …`, `fix: …`, `docs: …`). PRs are squash-merged, so
+  the PR title becomes the commit title on `main` that release-please
+  uses to decide the next version.
+
+Releases are automated by release-please. Maintainers should see
+[Releasing](./README.md#releasing) in the README for how a release
+happens.
 
 ## Tests
 
 Tests live alongside the source under `src/__tests__/` and use
 [vitest](https://vitest.dev/) with `globals: true`. Several tests
 validate structural invariants — for example, the version in
-`package.json` must match `plugin/.codex-plugin/plugin.json` and
-`plugin/.claude-plugin/plugin.json`. When you bump the version, update
-all three together or the test suite will fail.
+`package.json` must match `plugin/.codex-plugin/plugin.json`,
+`plugin/.claude-plugin/plugin.json`, the `deploygate` entry in
+`.claude-plugin/marketplace.json`, and `.release-please-manifest.json`.
+Versions are bumped by release-please in the release PR, so do not
+bump them manually; these tests catch mismatched manual edits.
 
 ## Code of Conduct
 
