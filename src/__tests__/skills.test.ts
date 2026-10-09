@@ -161,25 +161,70 @@ describe("skills allowed-tools frontmatter", () => {
 
   it("setup skill pre-approves MCP deploygate tools (wildcard)", () => {
     const content = loadSkill("plugin/skills/setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*mcp__deploygate__\*/);
+    expect(content).toMatch(
+      /allowed-tools:.*mcp__plugin_deploygate_deploygate__\*/,
+    );
   });
 
   it("deploy skill pre-approves upload_app and get_user_info", () => {
     const content = loadSkill("plugin/skills/deploy/SKILL.md");
-    expect(content).toContain("mcp__deploygate__upload_app");
-    expect(content).toContain("mcp__deploygate__get_user_info");
+    expect(content).toContain("mcp__plugin_deploygate_deploygate__upload_app");
+    expect(content).toContain(
+      "mcp__plugin_deploygate_deploygate__get_user_info",
+    );
   });
 
-  it("ci-setup skill pre-approves file-editing tools", () => {
+  it("ci-setup skill pre-approves edits to CI config files only", () => {
     const content = loadSkill("plugin/skills/ci-setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*\bWrite\b/);
-    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(\.github\/workflows\/\*\*\)/);
   });
 
-  it("sdk-setup skill pre-approves Edit for build.gradle", () => {
+  it("sdk-setup skill pre-approves Edit for build.gradle only", () => {
     const content = loadSkill("plugin/skills/sdk-setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(build\.gradle\)/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(build\.gradle\.kts\)/);
   });
+});
+
+// The Claude plugin directory holds a version for review when a skill
+// pre-approves broad access, so allowed-tools must stay narrow.
+describe("skills allowed-tools meet Claude plugin directory policy", () => {
+  const skills = ["setup", "deploy", "ci-setup", "sdk-setup"];
+
+  function allowedTools(skill: string): string[] {
+    const content = loadSkill(`plugin/skills/${skill}/SKILL.md`);
+    const line = content.match(/^allowed-tools:(.*)$/m);
+    expect(line).not.toBeNull();
+    return line![1].trim().split(/\s+/);
+  }
+
+  for (const skill of skills) {
+    it(`${skill} scopes MCP tools to the plugin`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("mcp__"),
+      )) {
+        expect(tool).toMatch(/^mcp__plugin_deploygate_deploygate__/);
+      }
+    });
+
+    it(`${skill} does not pre-approve build tools or file-mutating shell commands`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("Bash("),
+      )) {
+        expect(tool).not.toMatch(
+          /^Bash\((\.\/|gradlew|fastlane|xcodebuild|cp|cd|mkdir|zip|rm|mv)\b/,
+        );
+      }
+    });
+
+    it(`${skill} does not pre-approve unscoped Write or Edit`, () => {
+      const tools = allowedTools(skill);
+      expect(tools).not.toContain("Write");
+      expect(tools).not.toContain("Edit");
+      // Claude Code never consults path rules on Write; Edit(path) covers it.
+      expect(tools.some((t) => t.startsWith("Write("))).toBe(false);
+    });
+  }
 });
 
 describe("skills/deploy delegates to setup skill for complex cases", () => {

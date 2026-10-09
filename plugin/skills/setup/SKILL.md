@@ -1,7 +1,7 @@
 ---
 name: setup
 description: Start DeployGate onboarding — set up app distribution from first upload to team-wide deployment
-allowed-tools: mcp__deploygate__* Bash(./gradlew:*) Bash(xcodebuild:*) Bash(fastlane:*) Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(mkdir:*) Bash(cp:*) Bash(zip:*) Bash(cd:*) Bash(ls:*) Read Glob AskUserQuestion
+allowed-tools: mcp__plugin_deploygate_deploygate__* Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(ls:*) Read Glob AskUserQuestion
 ---
 
 ## Response Language

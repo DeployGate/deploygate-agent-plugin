@@ -37,7 +37,7 @@ CI runs `npm run build && npm test` on Node 24 on every PR and push to main. A s
 - `members.ts` — multi-step member management (workspace → project → team → app)
 - `shared-teams.ts` — workspace-wide shared team management
 
-**Plugin assets** (`plugin/`): Contains the Codex plugin manifest (`plugin/.codex-plugin/plugin.json`), legacy Claude plugin manifest (`plugin/.claude-plugin/plugin.json`), MCP server config (`.mcp.json`), skills (slash commands in `plugin/skills/`), GitHub Actions templates (`plugin/templates/`), and the bundled server script. The `plugin/` subdirectory is the published plugin root.
+**Plugin assets** (`plugin/`): Contains the Codex plugin manifest (`plugin/.codex-plugin/plugin.json`), legacy Claude plugin manifest (`plugin/.claude-plugin/plugin.json`), MCP server configs (`.mcp.json` for Claude, which runs the bundle via `${CLAUDE_PLUGIN_ROOT}`; `.codex-mcp.json` for Codex, which does not expand that variable and runs it relative to the plugin root), the Claude plugin directory listing README (`plugin/README.md`) and icon (`plugin/.claude-plugin/icon.png`), skills (slash commands in `plugin/skills/`), GitHub Actions templates (`plugin/templates/`), and the bundled server script. The `plugin/` subdirectory is the published plugin root.
 
 **Marketplace config** (`.agents/plugins/marketplace.json`): Top-level pointer to the `plugin/` subdirectory for Codex plugin marketplace registration.
 
@@ -59,4 +59,5 @@ Tests validate structural invariants like version consistency between `package.j
 - TypeScript strict mode, target ES2022, Node16 module resolution
 - The build produces both `dist/` (tsc output) and `plugin/scripts/bundle.js` (esbuild single-file bundle); the bundle is what end users run
 - Authentication uses the device authorization code flow. `login_start` → user approves in browser → `login_wait` stores the token at `~/.config/deploygate/token` (0600). `logout` revokes server-side and deletes the file.
+- Skill `allowed-tools` must name MCP tools with the plugin scope (`mcp__plugin_deploygate_deploygate__*`), and must not pre-approve build tools (`./gradlew`, `xcodebuild`, `fastlane`), file-mutating shell commands, or unscoped `Write`/`Edit` (use `Edit(<path>)`, which also covers `Write`). The Claude plugin directory holds versions that do; `skills.test.ts` enforces this.
 - The `members.ts` `add_member` tool orchestrates multiple API calls (workspace → project → team) in a single tool invocation, handling "already exists" gracefully
