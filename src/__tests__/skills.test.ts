@@ -218,17 +218,26 @@ describe("skills allowed-tools meet Claude plugin directory policy", () => {
     });
 
     // The server also exposes destructive and access-granting tools
-    // (delete_project, remove_*, update_saml_certificate, add_member, ...),
-    // so each skill names the tools it pre-approves instead of using a
-    // wildcard, and leaves those to a per-call approval.
-    it(`${skill} pre-approves no MCP wildcard and no destructive or access-granting tools`, () => {
+    // (delete_project, remove_*, update_saml_certificate, add_member,
+    // create_shared_team, ...). Skills may pre-approve only the tools in
+    // this list, so a wildcard or any other tool, including one added to
+    // the server later, needs a per-call approval unless this list is
+    // deliberately extended.
+    const PRE_APPROVABLE_MCP_TOOLS = [
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ].map((tool) => `mcp__plugin_deploygate_deploygate__${tool}`);
+
+    it(`${skill} pre-approves only non-destructive MCP tools that grant no access`, () => {
       for (const tool of allowedTools(skill).filter((t) =>
         t.startsWith("mcp__"),
       )) {
-        expect(tool).not.toContain("*");
-        expect(tool).not.toMatch(
-          /__(delete|remove|update|protect|unprotect|download|add|assign)_/,
-        );
+        expect(PRE_APPROVABLE_MCP_TOOLS).toContain(tool);
       }
     });
 
