@@ -159,11 +159,21 @@ describe("skills allowed-tools frontmatter", () => {
     });
   }
 
-  it("setup skill pre-approves MCP deploygate tools (wildcard)", () => {
+  it("setup skill pre-approves the Phase 1 onboarding tools", () => {
     const content = loadSkill("plugin/skills/setup/SKILL.md");
-    expect(content).toMatch(
-      /allowed-tools:.*mcp__plugin_deploygate_deploygate__\*/,
-    );
+    for (const tool of [
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ]) {
+      expect(content).toMatch(
+        new RegExp(`allowed-tools:.*mcp__plugin_deploygate_deploygate__${tool}\\b`),
+      );
+    }
   });
 
   it("deploy skill pre-approves upload_app and get_user_info", () => {
@@ -204,6 +214,21 @@ describe("skills allowed-tools meet Claude plugin directory policy", () => {
         t.startsWith("mcp__"),
       )) {
         expect(tool).toMatch(/^mcp__plugin_deploygate_deploygate__/);
+      }
+    });
+
+    // The server also exposes destructive and access-granting tools
+    // (delete_project, remove_*, update_saml_certificate, add_member, ...),
+    // so each skill names the tools it pre-approves instead of using a
+    // wildcard, and leaves those to a per-call approval.
+    it(`${skill} pre-approves no MCP wildcard and no destructive or access-granting tools`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("mcp__"),
+      )) {
+        expect(tool).not.toContain("*");
+        expect(tool).not.toMatch(
+          /__(delete|remove|update|protect|unprotect|download|add|assign)_/,
+        );
       }
     });
 

@@ -1,7 +1,7 @@
 ---
 name: setup
 description: Start DeployGate onboarding — set up app distribution from first upload to team-wide deployment
-allowed-tools: mcp__plugin_deploygate_deploygate__* Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(ls:*) Read Glob AskUserQuestion
+allowed-tools: mcp__plugin_deploygate_deploygate__login_start mcp__plugin_deploygate_deploygate__login_wait mcp__plugin_deploygate_deploygate__get_user_info mcp__plugin_deploygate_deploygate__upload_app mcp__plugin_deploygate_deploygate__create_distribution mcp__plugin_deploygate_deploygate__get_udids mcp__plugin_deploygate_deploygate__get_notification_settings_url Bash(security find-identity:*) Bash(git rev-parse:*) Bash(which:*) Bash(ls:*) Read Glob AskUserQuestion
 ---
 
 ## Response Language
