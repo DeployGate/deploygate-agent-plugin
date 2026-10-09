@@ -20,7 +20,7 @@
     "ci-cd"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./.codex-mcp.json",
   "interface": {
     "displayName": "DeployGate",
     "shortDescription": "Upload mobile apps and manage DeployGate distribution workflows",

@@ -159,27 +159,106 @@ describe("skills allowed-tools frontmatter", () => {
     });
   }
 
-  it("setup skill pre-approves MCP deploygate tools (wildcard)", () => {
+  it("setup skill pre-approves the Phase 1 onboarding tools", () => {
     const content = loadSkill("plugin/skills/setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*mcp__deploygate__\*/);
+    for (const tool of [
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ]) {
+      expect(content).toMatch(
+        new RegExp(`allowed-tools:.*mcp__plugin_deploygate_deploygate__${tool}\\b`),
+      );
+    }
   });
 
   it("deploy skill pre-approves upload_app and get_user_info", () => {
     const content = loadSkill("plugin/skills/deploy/SKILL.md");
-    expect(content).toContain("mcp__deploygate__upload_app");
-    expect(content).toContain("mcp__deploygate__get_user_info");
+    expect(content).toContain("mcp__plugin_deploygate_deploygate__upload_app");
+    expect(content).toContain(
+      "mcp__plugin_deploygate_deploygate__get_user_info",
+    );
   });
 
-  it("ci-setup skill pre-approves file-editing tools", () => {
+  it("ci-setup skill pre-approves edits to CI config files only", () => {
     const content = loadSkill("plugin/skills/ci-setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*\bWrite\b/);
-    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(\.github\/workflows\/\*\*\)/);
   });
 
-  it("sdk-setup skill pre-approves Edit for build.gradle", () => {
+  it("sdk-setup skill pre-approves Edit for build.gradle only", () => {
     const content = loadSkill("plugin/skills/sdk-setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(build\.gradle\)/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(build\.gradle\.kts\)/);
   });
+});
+
+// The Claude plugin directory holds a version for review when a skill
+// pre-approves broad access, so allowed-tools must stay narrow.
+describe("skills allowed-tools meet Claude plugin directory policy", () => {
+  const skills = ["setup", "deploy", "ci-setup", "sdk-setup"];
+
+  function allowedTools(skill: string): string[] {
+    const content = loadSkill(`plugin/skills/${skill}/SKILL.md`);
+    const line = content.match(/^allowed-tools:(.*)$/m);
+    expect(line).not.toBeNull();
+    return line![1].trim().split(/\s+/);
+  }
+
+  for (const skill of skills) {
+    it(`${skill} scopes MCP tools to the plugin`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("mcp__"),
+      )) {
+        expect(tool).toMatch(/^mcp__plugin_deploygate_deploygate__/);
+      }
+    });
+
+    // The server also exposes destructive and access-granting tools
+    // (delete_project, remove_*, update_saml_certificate, add_member,
+    // create_shared_team, ...). Skills may pre-approve only the tools in
+    // this list, so a wildcard or any other tool, including one added to
+    // the server later, needs a per-call approval unless this list is
+    // deliberately extended.
+    const PRE_APPROVABLE_MCP_TOOLS = [
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ].map((tool) => `mcp__plugin_deploygate_deploygate__${tool}`);
+
+    it(`${skill} pre-approves only non-destructive MCP tools that grant no access`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("mcp__"),
+      )) {
+        expect(PRE_APPROVABLE_MCP_TOOLS).toContain(tool);
+      }
+    });
+
+    it(`${skill} does not pre-approve build tools or file-mutating shell commands`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("Bash("),
+      )) {
+        expect(tool).not.toMatch(
+          /^Bash\((\.\/|gradlew|fastlane|xcodebuild|cp|cd|mkdir|zip|rm|mv)\b/,
+        );
+      }
+    });
+
+    it(`${skill} does not pre-approve unscoped Write or Edit`, () => {
+      const tools = allowedTools(skill);
+      expect(tools).not.toContain("Write");
+      expect(tools).not.toContain("Edit");
+      // Claude Code never consults path rules on Write; Edit(path) covers it.
+      expect(tools.some((t) => t.startsWith("Write("))).toBe(false);
+    });
+  }
 });
 
 describe("skills/deploy delegates to setup skill for complex cases", () => {

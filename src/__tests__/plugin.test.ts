@@ -134,21 +134,17 @@ describe("plugin/.mcp.json", () => {
     expect(servers.deploygate).toBeDefined();
   });
 
-  it("uses a Codex-compatible portable entry point resolver", () => {
+  // The Claude plugin directory blocks inline programs (`node -e`) and paths
+  // not written in full from ${CLAUDE_PLUGIN_ROOT} when the plugin lives in a
+  // subfolder of the repository.
+  it("runs the bundle by its full path from CLAUDE_PLUGIN_ROOT", () => {
     const servers = mcp.mcpServers as Record<
       string,
       Record<string, unknown>
     >;
     const dg = servers.deploygate;
     expect(dg.command).toBe("node");
-    const args = dg.args as string[];
-    expect(args).toHaveLength(2);
-    expect(args[0]).toBe("-e");
-    expect(args[1]).toContain("CODEX_PLUGIN_ROOT");
-    expect(args[1]).toContain("CLAUDE_PLUGIN_ROOT");
-    expect(args[1]).toContain("scripts");
-    expect(args[1]).toContain("bundle.js");
-    expect(dg.cwd).toBe(".");
+    expect(dg.args).toEqual(["${CLAUDE_PLUGIN_ROOT}/scripts/bundle.js"]);
   });
 
   it("does not pass DEPLOYGATE_API_TOKEN through env", () => {
@@ -157,6 +153,52 @@ describe("plugin/.mcp.json", () => {
       Record<string, unknown>
     >;
     expect(servers.deploygate.env).toBeUndefined();
+  });
+});
+
+describe("plugin/.codex-mcp.json", () => {
+  const mcp = loadJson("plugin/.codex-mcp.json");
+
+  it("is the MCP config the Codex manifest points to", () => {
+    const plugin = loadJson("plugin/.codex-plugin/plugin.json");
+    expect(plugin.mcpServers).toBe("./.codex-mcp.json");
+  });
+
+  // Codex does not expand ${CLAUDE_PLUGIN_ROOT}, so it starts the server from
+  // the plugin root and runs the bundle by a relative path.
+  it("runs the bundle relative to the plugin root", () => {
+    const servers = mcp.mcpServers as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const dg = servers.deploygate;
+    expect(dg.command).toBe("node");
+    expect(dg.args).toEqual(["./scripts/bundle.js"]);
+    expect(dg.cwd).toBe(".");
+    expect(dg.env).toBeUndefined();
+  });
+});
+
+// The Claude plugin directory reads only the plugin folder, so the README it
+// lists and the icon have to live inside plugin/.
+describe("plugin folder listing assets", () => {
+  it("has a README of at least 40 words outside code blocks", () => {
+    const readme = readFileSync(resolve(ROOT, "plugin/README.md"), "utf-8");
+    const prose = readme.replace(/```[\s\S]*?```/g, "");
+    expect(prose.split(/\s+/).filter(Boolean).length).toBeGreaterThanOrEqual(
+      40,
+    );
+  });
+
+  it("has a square PNG icon between 512 and 2048 px under 2 MB", () => {
+    const icon = readFileSync(resolve(ROOT, "plugin/.claude-plugin/icon.png"));
+    expect(icon.subarray(1, 4).toString("ascii")).toBe("PNG");
+    const width = icon.readUInt32BE(16);
+    const height = icon.readUInt32BE(20);
+    expect(width).toBe(height);
+    expect(width).toBeGreaterThanOrEqual(512);
+    expect(width).toBeLessThanOrEqual(2048);
+    expect(icon.length).toBeLessThan(2 * 1024 * 1024);
   });
 });
 

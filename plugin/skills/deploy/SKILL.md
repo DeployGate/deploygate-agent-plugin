@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: Build the current project and upload the app binary to DeployGate
-allowed-tools: mcp__deploygate__get_user_info mcp__deploygate__upload_app Bash(./gradlew:*) Bash(fastlane:*) Bash(xcodebuild:*) Bash(git rev-parse:*) Bash(which:*) Read Glob
+allowed-tools: mcp__plugin_deploygate_deploygate__get_user_info mcp__plugin_deploygate_deploygate__upload_app Bash(git rev-parse:*) Bash(which:*) Read Glob
 ---
 
 # Build and upload app to DeployGate
