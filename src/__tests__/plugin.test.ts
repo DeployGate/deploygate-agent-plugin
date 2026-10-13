@@ -84,6 +84,7 @@ describe("plugin/.claude-plugin/plugin.json", () => {
   // README.
   it("sets https:// directory listing links", () => {
     for (const field of [
+      "repository",
       "documentationUrl",
       "supportUrl",
       "privacyPolicyUrl",

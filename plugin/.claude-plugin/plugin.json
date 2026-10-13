@@ -7,8 +7,9 @@
     "email": "support@deploygate.com"
   },
   "homepage": "https://deploygate.com",
+  "repository": "https://github.com/DeployGate/deploygate-agent-plugin",
   "license": "MIT",
-  "documentationUrl": "https://github.com/DeployGate/deploygate-agent-plugin#readme",
+  "documentationUrl": "https://docs.deploygate.com/docs/developer-tools/agent-plugin/",
   "supportUrl": "https://github.com/DeployGate/deploygate-agent-plugin/blob/main/SUPPORT.md",
   "privacyPolicyUrl": "https://deploygate.com/terms/privacy",
   "termsOfServiceUrl": "https://deploygate.com/terms",
