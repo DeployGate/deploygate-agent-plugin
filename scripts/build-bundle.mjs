@@ -27,13 +27,33 @@ const zodEnglishLocaleOnly = {
   },
 };
 
+// On the server side, the MCP SDK uses ajv (about 270 KB with its
+// dependencies) only to validate form elicitation responses, and this server
+// never elicits. Swap in a validator that fails loudly if that ever changes.
+const sdkWithoutAjv = {
+  name: "sdk-without-ajv",
+  setup(build) {
+    build.onLoad(
+      { filter: /[\\/]@modelcontextprotocol[\\/]sdk[\\/]dist[\\/]esm[\\/]validation[\\/]ajv-provider\.js$/ },
+      () => ({
+        contents: `export class AjvJsonSchemaValidator {
+  getValidator() {
+    throw new Error("JSON Schema validation (ajv) is left out of the DeployGate MCP bundle; see scripts/build-bundle.mjs");
+  }
+}`,
+        loader: "js",
+      }),
+    );
+  },
+};
+
 await build({
   entryPoints: [resolve(root, "dist/index.js")],
   bundle: true,
   platform: "node",
   format: "esm",
   outfile,
-  plugins: [zodEnglishLocaleOnly],
+  plugins: [zodEnglishLocaleOnly, sdkWithoutAjv],
   define: {
     __PLUGIN_VERSION__: JSON.stringify(pkg.version),
   },
