@@ -34,7 +34,13 @@ The plugin runs a local MCP server, so its tools work in Claude Code and Cowork 
 
 **Runs locally.** The MCP server is `scripts/bundle.js`, started with `node`. It talks to Claude over stdio and opens no network ports.
 
-**Sends data only to DeployGate.** Every request goes to `https://deploygate.com` over HTTPS: the app binaries and Android signing keystores you choose to upload, distribution page settings, member invitations, and requests for account, app, and device information. The plugin contacts no other service and sends no telemetry.
+**The MCP server sends data only to DeployGate.** Every request goes to `https://deploygate.com` over HTTPS: the app binaries and Android signing keystores you choose to upload, distribution page settings, member invitations, and requests for account, app, and device information. The server contacts no other service and sends no telemetry.
+
+**Skills can run your own build and signing tools.** Claude Code asks before it runs these commands, unless your own permission settings already allow them. The tools use your own accounts and configuration, and the plugin doesn't read their credentials.
+
+- Gradle, `xcodebuild`, and fastlane (`gym`) build your app. Signing uses the certificates and provisioning profiles already on your machine. The tools reach the network only when they need something they don't have, such as Gradle downloading dependencies, or Xcode or fastlane fetching provisioning profiles from Apple if your project is set up to.
+- For iOS Ad Hoc and Development builds, the `setup` skill can run `fastlane register_devices` and `fastlane sigh` to register testers' devices with the Apple Developer Portal and refresh the provisioning profile. This sends the device UDIDs, the device names (which include tester names), and your Apple ID and team ID to Apple.
+- For iOS CI, the `ci-setup` skill can set up `fastlane match`. It creates signing certificates and provisioning profiles through the Apple Developer Portal when they don't exist yet, and stores them, including the certificates' private keys, in the storage you choose: a Git repository, Google Cloud Storage, or S3.
 
 **Stores one credential.** You sign in with a browser-based device authorization flow (`login_start`, then `login_wait`). DeployGate issues a token for this plugin, and the plugin saves it to `$XDG_CONFIG_HOME/deploygate/token`, which is `~/.config/deploygate/token` when `XDG_CONFIG_HOME` isn't set, or to `%APPDATA%\deploygate\token` on Windows. On macOS and Linux, the file has `0600` permissions, so only your user can read it. On Windows, it keeps the default access control of your `%APPDATA%` folder. The token is sent only to `https://deploygate.com`. The `logout` tool revokes it on the server and deletes the file.
 
