@@ -78,6 +78,20 @@ describe("plugin/.claude-plugin/plugin.json", () => {
     expect(plugin.skills).toBe("./skills/");
     expect(plugin.mcpServers).toBe("./.mcp.json");
   });
+
+  // Anthropic's directory reads its listing links from these fields, and
+  // drops any link that isn't https://. Without them it guesses from the
+  // README.
+  it("sets https:// directory listing links", () => {
+    for (const field of [
+      "documentationUrl",
+      "supportUrl",
+      "privacyPolicyUrl",
+      "termsOfServiceUrl",
+    ]) {
+      expect(plugin[field]).toMatch(/^https:\/\/\S+$/);
+    }
+  });
 });
 
 describe(".claude-plugin/marketplace.json", () => {

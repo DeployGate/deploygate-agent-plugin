@@ -8,6 +8,10 @@
   },
   "homepage": "https://deploygate.com",
   "license": "MIT",
+  "documentationUrl": "https://github.com/DeployGate/deploygate-agent-plugin#readme",
+  "supportUrl": "https://github.com/DeployGate/deploygate-agent-plugin/blob/main/SUPPORT.md",
+  "privacyPolicyUrl": "https://deploygate.com/terms/privacy",
+  "termsOfServiceUrl": "https://deploygate.com/terms",
   "keywords": [
     "deploygate",
     "mobile",
