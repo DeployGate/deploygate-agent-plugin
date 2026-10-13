@@ -44,12 +44,15 @@ The plugin runs a local MCP server, so its tools work in Claude Code and Cowork 
 
 ## About `scripts/bundle.js`
 
-`scripts/bundle.js` is the MCP server and its npm dependencies, mainly `@modelcontextprotocol/sdk` and `zod`, bundled into one unminified file with esbuild. It is built from the TypeScript source in [`src/`](https://github.com/DeployGate/deploygate-agent-plugin/tree/main/src) by `npm ci && npm run bundle`, and CI checks that the committed bundle matches a fresh build of the source before each release.
+`scripts/bundle.js` is the MCP server and its npm dependencies, mainly `@modelcontextprotocol/sdk` and `zod`, bundled into one unminified file with esbuild. The build leaves out code the server doesn't use: zod's error messages in languages other than English, and the SDK's JSON Schema validator for form elicitation. It is built from the TypeScript source in [`src/`](https://github.com/DeployGate/deploygate-agent-plugin/tree/main/src) by `npm ci && npm run bundle`, and CI checks that the committed bundle matches a fresh build of the source before each release, and that it stays under 1 MiB so it can be read as text.
 
 ## Support
 
-- Source and issues: https://github.com/DeployGate/deploygate-agent-plugin
-- Help: help@deploygate.com
+- Questions about the DeployGate service: [DeployGate Help Center](https://intercom.help/deploygate)
+- Bugs and feature requests for this plugin: [GitHub Issues](https://github.com/DeployGate/deploygate-agent-plugin/issues)
+- Security vulnerabilities: [help@deploygate.com](mailto:help@deploygate.com) (please don't open a public issue)
+
+See [SUPPORT.md](https://github.com/DeployGate/deploygate-agent-plugin/blob/main/SUPPORT.md) for details.
 
 ## License
 

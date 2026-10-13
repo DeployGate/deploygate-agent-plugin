@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -77,6 +77,20 @@ describe("plugin/.claude-plugin/plugin.json", () => {
     expect(plugin.version).toBeDefined();
     expect(plugin.skills).toBe("./skills/");
     expect(plugin.mcpServers).toBe("./.mcp.json");
+  });
+
+  // Anthropic's directory reads its listing links from these fields, and
+  // drops any link that isn't https://. Without them it guesses from the
+  // README.
+  it("sets https:// directory listing links", () => {
+    for (const field of [
+      "documentationUrl",
+      "supportUrl",
+      "privacyPolicyUrl",
+      "termsOfServiceUrl",
+    ]) {
+      expect(plugin[field]).toMatch(/^https:\/\/\S+$/);
+    }
   });
 });
 
@@ -301,5 +315,22 @@ describe("version sync across release manifests", () => {
     const deploygateEntry = plugins.find((p) => p.name === "deploygate");
     expect(deploygateEntry?.version).toBe(version);
     expect(manifest["."]).toBe(version);
+  });
+});
+
+// scripts/build-bundle.mjs leaves the MCP SDK's ajv validator out of the
+// bundle, because the SDK's server uses it only to validate form elicitation
+// responses. Elicitation would fail at runtime in the bundle, so the server
+// must not use it.
+describe("bundle build assumptions", () => {
+  it("server source does not use elicitation", () => {
+    const dirs = ["src", "src/tools"];
+    for (const dir of dirs) {
+      for (const file of readdirSync(resolve(ROOT, dir))) {
+        if (!file.endsWith(".ts")) continue;
+        const source = readFileSync(resolve(ROOT, dir, file), "utf-8");
+        expect(source, `${dir}/${file}`).not.toMatch(/elicit/i);
+      }
+    }
   });
 });
