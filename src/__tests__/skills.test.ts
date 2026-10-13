@@ -201,12 +201,55 @@ describe("skills allowed-tools frontmatter", () => {
 describe("skills allowed-tools meet Claude plugin directory policy", () => {
   const skills = ["setup", "deploy", "ci-setup", "sdk-setup"];
 
+  // Splits on whitespace outside parentheses, so a rule such as
+  // `Bash(security find-identity:*)` stays one entry.
   function allowedTools(skill: string): string[] {
     const content = loadSkill(`plugin/skills/${skill}/SKILL.md`);
     const line = content.match(/^allowed-tools:(.*)$/m);
     expect(line).not.toBeNull();
-    return line![1].trim().split(/\s+/);
+    return line![1].match(/[^\s(]+(?:\([^)]*\))?/g) ?? [];
   }
+
+  // Skills may pre-approve only the rules in this list; anything else needs a
+  // per-call approval unless the list is deliberately extended.
+  // - MCP: the server also exposes destructive and access-granting tools
+  //   (delete_project, remove_*, update_saml_certificate, add_member,
+  //   create_shared_team, ...), and may add more later.
+  // - Bash: build tools (./gradlew, xcodebuild, fastlane) and any command
+  //   that writes files or runs arbitrary code count as broad shell access.
+  // - Edit: only the CI configs and Gradle build scripts the skills set up.
+  //   Bare Write or Edit is unscoped, and Claude Code never consults path
+  //   rules on Write; Edit(path) covers writes too.
+  const PRE_APPROVABLE_RULES = [
+    "Read",
+    "Glob",
+    "AskUserQuestion",
+    ...[
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ].map((tool) => `mcp__plugin_deploygate_deploygate__${tool}`),
+    "Bash(security find-identity:*)",
+    "Bash(git rev-parse:*)",
+    "Bash(which:*)",
+    "Bash(ls:*)",
+    "Edit(.github/workflows/**)",
+    "Edit(bitrise.yml)",
+    "Edit(.circleci/config.yml)",
+    "Edit(build.gradle)",
+    "Edit(build.gradle.kts)",
+    "Edit(settings.gradle)",
+    "Edit(settings.gradle.kts)",
+  ];
+
+  it("keeps rules with spaces inside parentheses as one entry", () => {
+    expect(allowedTools("setup")).toContain("Bash(security find-identity:*)");
+    expect(allowedTools("setup")).toContain("Bash(git rev-parse:*)");
+  });
 
   for (const skill of skills) {
     it(`${skill} scopes MCP tools to the plugin`, () => {
@@ -217,46 +260,10 @@ describe("skills allowed-tools meet Claude plugin directory policy", () => {
       }
     });
 
-    // The server also exposes destructive and access-granting tools
-    // (delete_project, remove_*, update_saml_certificate, add_member,
-    // create_shared_team, ...). Skills may pre-approve only the tools in
-    // this list, so a wildcard or any other tool, including one added to
-    // the server later, needs a per-call approval unless this list is
-    // deliberately extended.
-    const PRE_APPROVABLE_MCP_TOOLS = [
-      "login_start",
-      "login_wait",
-      "get_user_info",
-      "upload_app",
-      "create_distribution",
-      "get_udids",
-      "get_notification_settings_url",
-    ].map((tool) => `mcp__plugin_deploygate_deploygate__${tool}`);
-
-    it(`${skill} pre-approves only non-destructive MCP tools that grant no access`, () => {
-      for (const tool of allowedTools(skill).filter((t) =>
-        t.startsWith("mcp__"),
-      )) {
-        expect(PRE_APPROVABLE_MCP_TOOLS).toContain(tool);
+    it(`${skill} pre-approves only rules on the policy allowlist`, () => {
+      for (const rule of allowedTools(skill)) {
+        expect(PRE_APPROVABLE_RULES).toContain(rule);
       }
-    });
-
-    it(`${skill} does not pre-approve build tools or file-mutating shell commands`, () => {
-      for (const tool of allowedTools(skill).filter((t) =>
-        t.startsWith("Bash("),
-      )) {
-        expect(tool).not.toMatch(
-          /^Bash\((\.\/|gradlew|fastlane|xcodebuild|cp|cd|mkdir|zip|rm|mv)\b/,
-        );
-      }
-    });
-
-    it(`${skill} does not pre-approve unscoped Write or Edit`, () => {
-      const tools = allowedTools(skill);
-      expect(tools).not.toContain("Write");
-      expect(tools).not.toContain("Edit");
-      // Claude Code never consults path rules on Write; Edit(path) covers it.
-      expect(tools.some((t) => t.startsWith("Write("))).toBe(false);
     });
   }
 });

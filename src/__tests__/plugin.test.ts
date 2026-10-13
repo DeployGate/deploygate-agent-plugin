@@ -192,7 +192,11 @@ describe("plugin folder listing assets", () => {
 
   it("has a square PNG icon between 512 and 2048 px under 2 MB", () => {
     const icon = readFileSync(resolve(ROOT, "plugin/.claude-plugin/icon.png"));
-    expect(icon.subarray(1, 4).toString("ascii")).toBe("PNG");
+    // PNG signature, then the IHDR chunk, which holds width and height.
+    expect([...icon.subarray(0, 8)]).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    expect(icon.subarray(12, 16).toString("ascii")).toBe("IHDR");
     const width = icon.readUInt32BE(16);
     const height = icon.readUInt32BE(20);
     expect(width).toBe(height);
