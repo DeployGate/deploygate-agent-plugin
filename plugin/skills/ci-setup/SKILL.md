@@ -1,7 +1,7 @@
 ---
 name: ci-setup
 description: Set up CI/CD integration for automated DeployGate uploads and PR-based distribution
-allowed-tools: mcp__deploygate__get_user_info Read Write Edit Glob Bash(which:*) Bash(ls:*)
+allowed-tools: mcp__plugin_deploygate_deploygate__get_user_info Read Glob Edit(.github/workflows/**) Edit(bitrise.yml) Edit(.circleci/config.yml) Bash(which:*) Bash(ls:*)
 ---
 
 # DeployGate CI/CD Setup

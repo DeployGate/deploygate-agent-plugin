@@ -71,7 +71,7 @@ The plugin signs you in to DeployGate via a browser-based device authorization c
 2. Open the URL in a browser where you are signed in to DeployGate and click approve.
 3. The agent calls `login_wait`, which returns your workspace information once you approve.
 
-The issued token is stored at `~/.config/deploygate/token` (on Windows, `%APPDATA%\deploygate\token`) with `0600` permissions and reused across sessions. Run the `logout` tool to revoke it server-side and delete the local file.
+The issued token is stored at `$XDG_CONFIG_HOME/deploygate/token`, which is `~/.config/deploygate/token` when `XDG_CONFIG_HOME` isn't set (on Windows, `%APPDATA%\deploygate\token`), and reused across sessions. On macOS and Linux, the file has `0600` permissions; on Windows, it keeps the default access control of `%APPDATA%`. Run the `logout` tool to revoke it server-side and delete the local file.
 
 ## Skills
 
@@ -91,7 +91,7 @@ Claude Code invokes plugin skills as slash commands. Codex invokes plugin skills
 | Tool | Description |
 |---|---|
 | `login_start` | Begin a browser-based device authorization login. Returns a URL for the user to open and approve. |
-| `login_wait` | Poll until the user approves `login_start`. On success, persists the token to `~/.config/deploygate/token` (0600). |
+| `login_wait` | Poll until the user approves `login_start`. On success, persists the token to the token file described in [Authentication](#authentication). |
 | `logout` | Revoke the stored token on the server and delete the local token file. |
 | `get_user_info` | Get current user information (workspace names, projects). Auto-clears the local token on a 401 response. |
 

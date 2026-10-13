@@ -159,27 +159,113 @@ describe("skills allowed-tools frontmatter", () => {
     });
   }
 
-  it("setup skill pre-approves MCP deploygate tools (wildcard)", () => {
+  it("setup skill pre-approves the Phase 1 onboarding tools", () => {
     const content = loadSkill("plugin/skills/setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*mcp__deploygate__\*/);
+    for (const tool of [
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ]) {
+      expect(content).toMatch(
+        new RegExp(`allowed-tools:.*mcp__plugin_deploygate_deploygate__${tool}\\b`),
+      );
+    }
   });
 
   it("deploy skill pre-approves upload_app and get_user_info", () => {
     const content = loadSkill("plugin/skills/deploy/SKILL.md");
-    expect(content).toContain("mcp__deploygate__upload_app");
-    expect(content).toContain("mcp__deploygate__get_user_info");
+    expect(content).toContain("mcp__plugin_deploygate_deploygate__upload_app");
+    expect(content).toContain(
+      "mcp__plugin_deploygate_deploygate__get_user_info",
+    );
   });
 
-  it("ci-setup skill pre-approves file-editing tools", () => {
+  it("ci-setup skill pre-approves edits to CI config files only", () => {
     const content = loadSkill("plugin/skills/ci-setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*\bWrite\b/);
-    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(\.github\/workflows\/\*\*\)/);
   });
 
-  it("sdk-setup skill pre-approves Edit for build.gradle", () => {
+  it("sdk-setup skill pre-approves Edit for build.gradle only", () => {
     const content = loadSkill("plugin/skills/sdk-setup/SKILL.md");
-    expect(content).toMatch(/allowed-tools:.*\bEdit\b/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(build\.gradle\)/);
+    expect(content).toMatch(/allowed-tools:.*Edit\(build\.gradle\.kts\)/);
   });
+});
+
+// The Claude plugin directory holds a version for review when a skill
+// pre-approves broad access, so allowed-tools must stay narrow.
+describe("skills allowed-tools meet Claude plugin directory policy", () => {
+  const skills = ["setup", "deploy", "ci-setup", "sdk-setup"];
+
+  // Splits on whitespace outside parentheses, so a rule such as
+  // `Bash(security find-identity:*)` stays one entry.
+  function allowedTools(skill: string): string[] {
+    const content = loadSkill(`plugin/skills/${skill}/SKILL.md`);
+    const line = content.match(/^allowed-tools:(.*)$/m);
+    expect(line).not.toBeNull();
+    return line![1].match(/[^\s(]+(?:\([^)]*\))?/g) ?? [];
+  }
+
+  // Skills may pre-approve only the rules in this list; anything else needs a
+  // per-call approval unless the list is deliberately extended.
+  // - MCP: the server also exposes destructive and access-granting tools
+  //   (delete_project, remove_*, update_saml_certificate, add_member,
+  //   create_shared_team, ...), and may add more later.
+  // - Bash: build tools (./gradlew, xcodebuild, fastlane) and any command
+  //   that writes files or runs arbitrary code count as broad shell access.
+  // - Edit: only the CI configs and Gradle build scripts the skills set up.
+  //   Bare Write or Edit is unscoped, and Claude Code never consults path
+  //   rules on Write; Edit(path) covers writes too.
+  const PRE_APPROVABLE_RULES = [
+    "Read",
+    "Glob",
+    "AskUserQuestion",
+    ...[
+      "login_start",
+      "login_wait",
+      "get_user_info",
+      "upload_app",
+      "create_distribution",
+      "get_udids",
+      "get_notification_settings_url",
+    ].map((tool) => `mcp__plugin_deploygate_deploygate__${tool}`),
+    "Bash(security find-identity:*)",
+    "Bash(git rev-parse:*)",
+    "Bash(which:*)",
+    "Bash(ls:*)",
+    "Edit(.github/workflows/**)",
+    "Edit(bitrise.yml)",
+    "Edit(.circleci/config.yml)",
+    "Edit(build.gradle)",
+    "Edit(build.gradle.kts)",
+    "Edit(settings.gradle)",
+    "Edit(settings.gradle.kts)",
+  ];
+
+  it("keeps rules with spaces inside parentheses as one entry", () => {
+    expect(allowedTools("setup")).toContain("Bash(security find-identity:*)");
+    expect(allowedTools("setup")).toContain("Bash(git rev-parse:*)");
+  });
+
+  for (const skill of skills) {
+    it(`${skill} scopes MCP tools to the plugin`, () => {
+      for (const tool of allowedTools(skill).filter((t) =>
+        t.startsWith("mcp__"),
+      )) {
+        expect(tool).toMatch(/^mcp__plugin_deploygate_deploygate__/);
+      }
+    });
+
+    it(`${skill} pre-approves only rules on the policy allowlist`, () => {
+      for (const rule of allowedTools(skill)) {
+        expect(PRE_APPROVABLE_RULES).toContain(rule);
+      }
+    });
+  }
 });
 
 describe("skills/deploy delegates to setup skill for complex cases", () => {

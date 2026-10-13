@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "deploygate": {
+      "command": "node",
+      "args": ["./scripts/bundle.js"],
+      "cwd": "."
+    }
+  }
+}
