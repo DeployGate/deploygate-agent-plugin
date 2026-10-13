@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.3](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.5.2...deploygate--v1.5.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* address Claude plugin directory review findings ([#87](https://github.com/DeployGate/deploygate-agent-plugin/issues/87)) ([0ac6695](https://github.com/DeployGate/deploygate-agent-plugin/commit/0ac66957671eefa5d7b660cf90a943387f103ce9))
+* keep the bundle under 1 MiB and set directory listing links ([#89](https://github.com/DeployGate/deploygate-agent-plugin/issues/89)) ([2ed4db0](https://github.com/DeployGate/deploygate-agent-plugin/commit/2ed4db0133ca32d6e39175c4cea6fd338e739781))
+
 ## [1.5.2](https://github.com/DeployGate/deploygate-agent-plugin/compare/deploygate--v1.5.1...deploygate--v1.5.2) (2026-10-07)
 
 
